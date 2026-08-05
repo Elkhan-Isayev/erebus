@@ -39,9 +39,9 @@ No runtime, no Docker, no server to deploy. Pick your platform and open the app.
 | 🪟 | **Windows** · installer | [![Download](https://img.shields.io/badge/Erebus--win--x64--setup.exe-download-0ea5e9?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-win-x64-setup.exe) |
 | 🪟 | **Windows** · portable | [![Download](https://img.shields.io/badge/Erebus--win--x64--portable.exe-download-0ea5e9?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-win-x64-portable.exe) |
 | 🪟 | **Windows** · ARM64 | [![Download](https://img.shields.io/badge/Erebus--win--arm64--setup.exe-download-0ea5e9?style=for-the-badge&logo=windows&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-win-arm64-setup.exe) |
-| 🐧 | **Linux** · AppImage | [![Download](https://img.shields.io/badge/Erebus--linux--x64.AppImage-download-d97706?style=for-the-badge&logo=linux&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-x64.AppImage) |
-| 🐧 | **Linux** · Debian, Ubuntu | [![Download](https://img.shields.io/badge/Erebus--linux--x64.deb-download-d97706?style=for-the-badge&logo=debian&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-x64.deb) |
-| 🐧 | **Linux** · Fedora, RHEL | [![Download](https://img.shields.io/badge/Erebus--linux--x64.rpm-download-d97706?style=for-the-badge&logo=redhat&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-x64.rpm) |
+| 🐧 | **Linux** · AppImage | [![Download](https://img.shields.io/badge/Erebus--linux--x86__64.AppImage-download-d97706?style=for-the-badge&logo=linux&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-x86_64.AppImage) |
+| 🐧 | **Linux** · Debian, Ubuntu | [![Download](https://img.shields.io/badge/Erebus--linux--amd64.deb-download-d97706?style=for-the-badge&logo=debian&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-amd64.deb) |
+| 🐧 | **Linux** · Fedora, RHEL | [![Download](https://img.shields.io/badge/Erebus--linux--x86__64.rpm-download-d97706?style=for-the-badge&logo=redhat&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-x86_64.rpm) |
 | 🐧 | **Linux** · ARM64 | [![AppImage](https://img.shields.io/badge/AppImage-arm64-d97706?style=for-the-badge&logo=linux&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-arm64.AppImage) [![deb](https://img.shields.io/badge/deb-arm64-d97706?style=for-the-badge&logo=debian&logoColor=white&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-arm64.deb) |
 
 Everything else — checksums, zip and tar.gz — is on the [**releases page**](https://github.com/Elkhan-Isayev/erebus/releases/latest).
@@ -50,7 +50,7 @@ Everything else — checksums, zip and tar.gz — is on the [**releases page**](
 
 > [!NOTE]
 > The builds are **not code-signed**. On macOS, right-click the app → *Open* the first time, or run
-> `xattr -cr /Applications/Erebus.app`. On Linux, `chmod +x Erebus-linux-x64.AppImage` before launching.
+> `xattr -cr /Applications/Erebus.app`. On Linux, `chmod +x Erebus-linux-x86_64.AppImage` before launching.
 
 <br>
 
@@ -239,7 +239,7 @@ claude mcp add erebus -- /Applications/Erebus.app/Contents/MacOS/Erebus --mcp
   "mcpServers": {
     "erebus": {
       // macOS:        /Applications/Erebus.app/Contents/MacOS/Erebus
-      // Linux:        /path/to/Erebus-linux-x64.AppImage
+      // Linux:        /path/to/Erebus-linux-x86_64.AppImage
       // Windows:      C:\\Users\\<you>\\AppData\\Local\\Programs\\Erebus\\Erebus.exe
       // From source:  "command": "npx", "args": ["electron", ".", "--mcp"]
       "command": "/Applications/Erebus.app/Contents/MacOS/Erebus",
