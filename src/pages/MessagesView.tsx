@@ -17,7 +17,7 @@ import { api, bridge } from '@/lib/api';
 import { cx, formatBytes, formatNumber, formatTimestamp, headersPreview, parseMaybeJson, truncate } from '@/lib/format';
 import { useAppState } from '@/app/AppState';
 import { useToast } from '@/lib/toast';
-import { ProduceModal } from './ProduceModal';
+import { ProduceModal, type ProducePrefill } from './ProduceModal';
 
 const SERDES: SerdeKind[] = ['auto', 'string', 'json', 'avro', 'protobuf', 'base64', 'hex', 'int32', 'int64'];
 
@@ -43,7 +43,15 @@ function SerdeOptions({ schemas }: { schemas: { id: string; name: string }[] }) 
   );
 }
 
-function MessageDetail({ message, onClose }: { message: KafkaMessage; onClose: () => void }) {
+function MessageDetail({
+  message,
+  onClose,
+  onResend,
+}: {
+  message: KafkaMessage;
+  onClose: () => void;
+  onResend?: (message: KafkaMessage) => void;
+}) {
   const render = (payload: KafkaMessage['key']) => {
     if (payload.text === null) return <span className="subtle">null</span>;
     return (
@@ -64,6 +72,11 @@ function MessageDetail({ message, onClose }: { message: KafkaMessage; onClose: (
       onClose={onClose}
       footer={
         <>
+          {onResend && (
+            <Button className="left" onClick={() => onResend(message)}>
+              <Icon.Send width={14} /> Produce a copy
+            </Button>
+          )}
           <CopyButton label="Copy value" text={message.value.text ?? ''} />
           <CopyButton label="Copy as JSON" text={JSON.stringify(message, null, 2)} />
           <Button onClick={onClose}>Close</Button>
@@ -161,7 +174,7 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
   const [progress, setProgress] = useState<ConsumeProgress | null>(null);
   const [running, setRunning] = useState(false);
   const [selected, setSelected] = useState<KafkaMessage | null>(null);
-  const [producing, setProducing] = useState(false);
+  const [producing, setProducing] = useState<{ prefill?: ProducePrefill } | null>(null);
 
   const sessionRef = useRef<string | null>(null);
   const pendingRef = useRef<KafkaMessage[]>([]);
@@ -389,7 +402,7 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
           >
             <Icon.Filter width={15} />
           </Button>
-          <Button variant="ghost" iconOnly title="Produce message" disabled={cluster.readonly} onClick={() => setProducing(true)}>
+          <Button variant="ghost" iconOnly title="Produce message" disabled={cluster.readonly} onClick={() => setProducing({})}>
             <Icon.Send width={15} />
           </Button>
         </div>
@@ -515,13 +528,33 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
         )}
       </div>
 
-      {selected && <MessageDetail message={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <MessageDetail
+          message={selected}
+          onClose={() => setSelected(null)}
+          onResend={
+            cluster.readonly
+              ? undefined
+              : (message) => {
+                  setSelected(null);
+                  setProducing({
+                    prefill: {
+                      key: message.key.text,
+                      value: message.value.text ?? '',
+                      headers: message.headers,
+                    },
+                  });
+                }
+          }
+        />
+      )}
       {producing && (
         <ProduceModal
           cluster={cluster}
           topic={topic}
           partitionCount={partitionCount}
-          onClose={() => setProducing(false)}
+          prefill={producing.prefill}
+          onClose={() => setProducing(null)}
           onProduced={() => void start({ live })}
         />
       )}

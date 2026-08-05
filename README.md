@@ -161,7 +161,7 @@ cannot reach from your laptop.
 | **Topics** | Sortable list with partitions, replication factor, out-of-sync replicas, message count, cleanup policy and retention. Create with arbitrary config, edit config inline, add partitions, purge records, delete (typed confirmation). Partition table with leader, replicas, ISR and offsets. |
 | **Messages** | Seek by **newest / oldest / offset / timestamp**, all partitions or a subset. Deserializers: auto, `string`, `json`, **Avro through the Schema Registry**, JSON Schema, `base64`, `hex`, `int32`, `int64`. Substring search **plus a sandboxed JavaScript filter**. **Live tail.** Export the result set as JSON. |
 | **Headers** | A column of their own in the list, and a panel in the message view. Values that are JSON — `x-request-context`, `x-schema`, whatever your producers attach — are pretty-printed and highlighted; binary ones fall back to base64, repeated keys are kept. The JavaScript filter receives them parsed, so `headers['x-request-context'].tenant === 'acme'` works. |
-| **Produce** | Key and value serializers (including Avro against a registered subject), headers, target partition, compression, null keys. |
+| **Produce** | Key, body and headers in one dialog. Headers can be typed as pairs or pasted as a **JSON object** — nested values are serialised for you. Key and value serializers (including Avro, registry or local schema), target partition, compression, explicit null keys. Any message can be **resent as a copy**, prefilled with its key, body and headers. |
 | **Consumer groups** | State, members, assignments, per-partition committed offset, end offset and lag. Reset to earliest, latest, an offset or a timestamp. Delete a group. |
 | **Schema Registry** | Subjects, versions, highlighted schema. Register AVRO / JSON / PROTOBUF, check compatibility first, change the compatibility level, delete a version or a subject. |
 | **Avro plugin** | Local `.avsc` schemas, validated on save, offered as `avro · <name>` in every serde picker — reading *and* writing. Confluent-framed payloads are handled too: the five header bytes are skipped. No registry required. |
@@ -386,7 +386,7 @@ Reproduce it yourself: `scripts/` has nothing magic — a paced `kafkajs` produc
 </td>
 <td width="50%" valign="top" align="center">
 <img src="docs/kafka-produce-dark.png" alt="Produce dialog"><br>
-<b>Produce</b> — serializers, headers, partition, compression
+<b>Produce</b> — key, body and JSON headers in one dialog
 </td>
 </tr>
 <tr>
