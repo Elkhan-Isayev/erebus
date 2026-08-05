@@ -1,0 +1,97 @@
+appId: com.elkhanisayev.erebus
+productName: Erebus
+copyright: Copyright © 2026 Elkhan Isayev
+
+# Version-less asset names so README links to /releases/latest/download/<file> keep working.
+artifactName: ${productName}-${os}-${arch}.${ext}
+
+directories:
+  buildResources: build
+  output: release
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - build/icon.png
+  - package.json
+  - '!**/*.map'
+
+# kafkajs pulls in optional native codecs we never require; keep the bundle lean.
+asarUnpack: []
+
+npmRebuild: false
+
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  darkModeSupport: true
+  hardenedRuntime: false
+  gatekeeperAssess: false
+  identity: null
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+    - target: zip
+      arch: [x64, arm64]
+
+dmg:
+  artifactName: ${productName}-mac-${arch}.${ext}
+  contents:
+    - x: 140
+      y: 200
+    - x: 400
+      y: 200
+      type: link
+      path: /Applications
+
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+    - target: portable
+      arch: [x64]
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-win-${arch}-setup.${ext}
+  shortcutName: Erebus
+
+portable:
+  artifactName: ${productName}-win-${arch}-portable.${ext}
+
+linux:
+  icon: build/icon.png
+  category: Development
+  synopsis: Desktop client for Apache Kafka
+  description: Browse topics, produce and consume messages, manage consumer groups, schemas and connectors.
+  desktop:
+    entry:
+      Name: Erebus
+      Comment: Desktop client for Apache Kafka
+      Keywords: kafka;streaming;developer;
+  target:
+    - target: AppImage
+      arch: [x64, arm64]
+    - target: deb
+      arch: [x64, arm64]
+    - target: rpm
+      arch: [x64]
+    - target: tar.gz
+      arch: [x64, arm64]
+
+appImage:
+  artifactName: ${productName}-linux-${arch}.${ext}
+
+deb:
+  artifactName: ${productName}-linux-${arch}.${ext}
+
+rpm:
+  artifactName: ${productName}-linux-${arch}.${ext}
+
+publish:
+  provider: github
+  owner: Elkhan-Isayev
+  repo: erebus

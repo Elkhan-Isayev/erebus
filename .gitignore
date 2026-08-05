@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-electron/
+release/
+build/icon.png
+build/icon.ico
+build/icon.icns
+*.log
+.DS_Store
+.vscode/
+.idea/
+*.tsbuildinfo
