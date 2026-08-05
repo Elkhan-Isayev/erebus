@@ -40,7 +40,6 @@ function buildPredicate(expression?: string) {
     message: KafkaMessage,
   ) => unknown;
   return (message: KafkaMessage): boolean => {
-    const headers = Object.fromEntries(message.headers.map((h) => [h.key, h.value]));
     const parse = (text: string | null) => {
       if (text === null) return null;
       try {
@@ -49,12 +48,36 @@ function buildPredicate(expression?: string) {
         return text;
       }
     };
+    // Header values are often JSON documents; hand them over parsed.
+    const headers = Object.fromEntries(message.headers.map((h) => [h.key, parse(h.value)]));
     try {
       return Boolean(fn(parse(message.key.text), parse(message.value.text), headers, message));
     } catch {
       return false;
     }
   };
+}
+
+/** Kafka headers are bytes and may repeat; binary ones fall back to base64. */
+function decodeHeaders(raw: unknown): { key: string; value: string }[] {
+  const out: { key: string; value: string }[] = [];
+  for (const [key, value] of Object.entries((raw ?? {}) as Record<string, unknown>)) {
+    for (const single of Array.isArray(value) ? value : [value]) {
+      if (single === null || single === undefined) {
+        out.push({ key, value: '' });
+        continue;
+      }
+      if (!Buffer.isBuffer(single)) {
+        out.push({ key, value: String(single) });
+        continue;
+      }
+      const text = single.toString('utf8');
+      // eslint-disable-next-line no-control-regex
+      const binary = /[\u0000-\u0008\u000e-\u001f]/.test(text);
+      out.push({ key, value: binary ? single.toString('base64') : text });
+    }
+  }
+  return out;
 }
 
 function matchesSearch(message: KafkaMessage, needle: string): boolean {
@@ -324,10 +347,7 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
           timestamp: message.timestamp,
           key,
           value,
-          headers: Object.entries(message.headers ?? {}).map(([k, v]) => ({
-            key: k,
-            value: v === null || v === undefined ? '' : Buffer.isBuffer(v) ? v.toString('utf8') : String(v),
-          })),
+          headers: decodeHeaders(message.headers),
         };
 
         if (needle && !matchesSearch(decoded, needle)) continue;

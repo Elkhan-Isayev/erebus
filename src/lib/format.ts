@@ -87,6 +87,32 @@ export function highlightJson(source: string): string {
   );
 }
 
+/** Header values are frequently JSON documents — parse them when they are. */
+export function parseMaybeJson(text: string): unknown {
+  const trimmed = text.trim();
+  if (!trimmed || !/^[[{]/.test(trimmed)) return null;
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return null;
+  }
+}
+
+/** Compact one-line rendering of a message's headers, with JSON values inlined. */
+export function headersPreview(headers: { key: string; value: string }[]): string {
+  if (headers.length === 0) return '';
+  const shaped: Record<string, unknown> = {};
+  for (const header of headers) {
+    const parsed = parseMaybeJson(header.value);
+    const value = parsed ?? header.value;
+    const existing = shaped[header.key];
+    if (existing === undefined) shaped[header.key] = value;
+    else if (Array.isArray(existing)) existing.push(value);
+    else shaped[header.key] = [existing, value];
+  }
+  return JSON.stringify(shaped);
+}
+
 export function truncate(value: string, max = 200): string {
   return value.length > max ? `${value.slice(0, max)}…` : value;
 }

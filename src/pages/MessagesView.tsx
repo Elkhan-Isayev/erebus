@@ -14,7 +14,7 @@ import {
   Select,
 } from '@/components/ui';
 import { api, bridge } from '@/lib/api';
-import { cx, formatBytes, formatNumber, formatTimestamp, truncate } from '@/lib/format';
+import { cx, formatBytes, formatNumber, formatTimestamp, headersPreview, parseMaybeJson, truncate } from '@/lib/format';
 import { useAppState } from '@/app/AppState';
 import { useToast } from '@/lib/toast';
 import { ProduceModal } from './ProduceModal';
@@ -104,20 +104,34 @@ function MessageDetail({ message, onClose }: { message: KafkaMessage; onClose: (
 
       {message.headers.length > 0 && (
         <>
-          <h3 style={{ fontSize: 12, margin: '16px 0 6px' }} className="subtle">
-            HEADERS
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '16px 0 6px' }}>
+            <h3 style={{ fontSize: 12 }} className="subtle">
+              HEADERS
+            </h3>
+            <CopyButton text={headersPreview(message.headers)} />
+          </div>
           <div className="table-wrap card">
             <table className="data">
               <tbody>
-                {message.headers.map((h, i) => (
-                  <tr key={i}>
-                    <td className="mono" style={{ width: '32%' }}>
-                      {h.key}
-                    </td>
-                    <td className="mono">{h.value}</td>
-                  </tr>
-                ))}
+                {message.headers.map((h, i) => {
+                  const parsed = parseMaybeJson(h.value);
+                  return (
+                    <tr key={i}>
+                      <td className="mono" style={{ width: '30%', verticalAlign: 'top' }}>
+                        {h.key}
+                      </td>
+                      <td>
+                        {parsed !== null ? (
+                          <CodeBlock language="json">{JSON.stringify(parsed, null, 2)}</CodeBlock>
+                        ) : (
+                          <span className="mono" style={{ wordBreak: 'break-word' }}>
+                            {h.value || <span className="subtle">empty</span>}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -385,7 +399,7 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'var(--surface-2)' }}>
           <Field
             label="JavaScript filter"
-            hint="Runs per message in a sandbox. Available: key, value (parsed when JSON), headers, message."
+            hint="Runs per message in a sandbox. Available: key, value and headers (each parsed when it is JSON), and message."
           >
             <Input
               className="mono"
@@ -460,8 +474,9 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
                 <th style={{ width: 176 }}>Timestamp</th>
                 <th style={{ width: 60 }}>Part.</th>
                 <th style={{ width: 96 }}>Offset</th>
-                <th style={{ width: '28%' }}>Key</th>
+                <th style={{ width: '20%' }}>Key</th>
                 <th>Value</th>
+                <th style={{ width: '22%' }}>Headers</th>
                 <th style={{ width: 70 }} className="right">
                   Size
                 </th>
@@ -482,6 +497,15 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
                     <div className="msg-preview">
                       {message.value.text === null ? <span className="subtle">null</span> : truncate(message.value.text, 400)}
                     </div>
+                  </td>
+                  <td>
+                    {message.headers.length === 0 ? (
+                      <span className="subtle">—</span>
+                    ) : (
+                      <div className="msg-preview" title={headersPreview(message.headers)}>
+                        {truncate(headersPreview(message.headers), 220)}
+                      </div>
+                    )}
                   </td>
                   <td className="right mono subtle">{formatBytes(message.key.size + message.value.size)}</td>
                 </tr>
