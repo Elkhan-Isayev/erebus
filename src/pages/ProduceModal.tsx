@@ -5,6 +5,7 @@ import { Button, Field, Input, Modal, Select, Textarea } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAsync } from '@/lib/hooks';
 import { useToast } from '@/lib/toast';
+import { useAppState } from '@/app/AppState';
 
 type Serde = ProduceInput['valueSerde'];
 const SERDES: Serde[] = ['string', 'json', 'base64', 'avro'];
@@ -23,6 +24,8 @@ export function ProduceModal({
   onProduced?: () => void;
 }) {
   const toast = useToast();
+  const { settings } = useAppState();
+  const avroSchemas = settings.avroSchemas ?? [];
   const [busy, setBusy] = useState(false);
   const [keySerde, setKeySerde] = useState<Serde>('string');
   const [valueSerde, setValueSerde] = useState<Serde>('json');
@@ -124,6 +127,15 @@ export function ProduceModal({
                 {s}
               </option>
             ))}
+            {avroSchemas.length > 0 && (
+              <optgroup label="Avro schemas">
+                {avroSchemas.map((entry) => (
+                  <option key={entry.id} value={`avro:${entry.id}`}>
+                    avro · {entry.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </Select>
         </Field>
         <Field label="Value serde">
@@ -133,6 +145,15 @@ export function ProduceModal({
                 {s}
               </option>
             ))}
+            {avroSchemas.length > 0 && (
+              <optgroup label="Avro schemas">
+                {avroSchemas.map((entry) => (
+                  <option key={entry.id} value={`avro:${entry.id}`}>
+                    avro · {entry.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </Select>
         </Field>
       </div>

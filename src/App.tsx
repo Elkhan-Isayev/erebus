@@ -32,7 +32,7 @@ type TopicTab = 'overview' | 'messages' | 'consumers' | 'settings';
 
 export default function App() {
   const route = useRoute();
-  const { clusters, ready, cycleTheme } = useAppState();
+  const { clusters, ready, cycleTheme, settings } = useAppState();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [newClusterRequested, setNewClusterRequested] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -114,10 +114,11 @@ export default function App() {
 
   useEffect(() => {
     if (!ready) return;
-    if (route === '/' || route === '') {
-      navigate(clusters.length > 0 ? `/c/${clusters[0].id}/dashboard` : '/clusters', { replace: true });
-    }
-  }, [ready, route, clusters]);
+    if (route !== '/' && route !== '') return;
+    // Open the cluster the user (or the agent) nominated, when it still exists.
+    const preferred = clusters.find((c) => c.id === settings.defaultClusterId) ?? clusters[0];
+    navigate(preferred ? `/c/${preferred.id}/dashboard` : '/clusters', { replace: true });
+  }, [ready, route, clusters, settings.defaultClusterId]);
 
   const params = queryParams(route);
 

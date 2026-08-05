@@ -264,8 +264,8 @@ export const TOOLS: McpTool[] = [
         partitions: { type: 'array', items: { type: 'number' }, description: 'Restrict to these partitions' },
         search: str('Case-insensitive substring that must appear in key, value or headers'),
         filter: str("JavaScript predicate over (key, value, headers, message), e.g. \"value.status === 'FAILED'\""),
-        keySerde: str('auto | string | json | avro | base64 | hex | int32 | int64 (default auto)'),
-        valueSerde: str('auto | string | json | avro | base64 | hex | int32 | int64 (default auto)'),
+        keySerde: str('auto | string | json | avro | base64 | hex | int32 | int64, or avro:<local schema id> (default auto)'),
+        valueSerde: str('auto | string | json | avro | base64 | hex | int32 | int64, or avro:<local schema id> (default auto)'),
       },
       ['clusterId', 'topic'],
     ),
@@ -312,8 +312,8 @@ export const TOOLS: McpTool[] = [
         key: str('Message key (omit for a null key)'),
         headers: { type: 'object', description: 'Headers as a flat string map' },
         partition: num('Target partition; omit to let Kafka choose'),
-        keySerde: str('string | json | base64 | avro (default string)'),
-        valueSerde: str('string | json | base64 | avro (default string)'),
+        keySerde: str('string | json | base64 | avro, or avro:<local schema id> (default string)'),
+        valueSerde: str('string | json | base64 | avro, or avro:<local schema id> (default string)'),
         keySubject: str('Schema Registry subject when keySerde is avro'),
         valueSubject: str('Schema Registry subject when valueSerde is avro'),
         compression: str('none | gzip | snappy | lz4 | zstd'),
@@ -612,6 +612,95 @@ export const TOOLS: McpTool[] = [
     description: 'RabbitMQ: connected clients, with peer, user, vhost and channel count.',
     inputSchema: object({ clusterId: CLUSTER }, ['clusterId']),
     run: ({ clusterId }) => call('rabbit:connections', { clusterId }),
+  },
+
+  /* ---------------------------------------------------------------- startup */
+  {
+    name: 'configure_startup',
+    description:
+      'Set what Erebus does when it launches: which cluster to open, and which commands to run in terminal tabs (kubectl port-forwards, typically). Pass terminals to replace the whole list of profiles, or omit it to leave them alone.',
+    inputSchema: object({
+      defaultClusterId: str('Cluster to open on launch; empty string restores "first in the list"'),
+      terminals: {
+        type: 'array',
+        description: 'Startup commands, replacing the saved profiles',
+        items: object(
+          {
+            name: str('Tab name'),
+            command: str('Command to run through the login shell'),
+            cwd: str('Working directory'),
+            autoStart: bool('Run it on launch (default true)'),
+          },
+          ['name', 'command'],
+        ),
+      },
+    }),
+    write: true,
+    run: async (args) => {
+      const patch: Record<string, unknown> = {};
+      if (args.defaultClusterId !== undefined) patch.defaultClusterId = args.defaultClusterId || null;
+      if (Array.isArray(args.terminals)) {
+        patch.terminals = args.terminals.map((t: any) => ({
+          id: t.id || crypto.randomUUID(),
+          name: t.name,
+          command: t.command,
+          cwd: t.cwd,
+          autoStart: t.autoStart ?? true,
+        }));
+      }
+      const settings = (await call('settings:update', patch)) as any;
+      return {
+        defaultClusterId: settings.defaultClusterId,
+        terminals: settings.terminals,
+        note: 'Applied on the next launch of Erebus.',
+      };
+    },
+  },
+  {
+    name: 'get_startup',
+    description: 'Show what Erebus will do on its next launch: the cluster it opens and the commands it runs.',
+    inputSchema: object({}),
+    run: async () => {
+      const settings = (await call('settings:get')) as any;
+      const clusters = (await call('clusters:list')) as any[];
+      return {
+        defaultClusterId: settings.defaultClusterId ?? null,
+        defaultCluster: clusters.find((c) => c.id === settings.defaultClusterId)?.name ?? clusters[0]?.name ?? null,
+        autoStartTerminals: (settings.terminals ?? []).filter((t: any) => t.autoStart),
+        otherProfiles: (settings.terminals ?? []).filter((t: any) => !t.autoStart),
+      };
+    },
+  },
+
+  /* ------------------------------------------------------------ avro plugin */
+  {
+    name: 'list_avro_schemas',
+    description:
+      'List the Avro schemas saved locally in Erebus. They work as deserializers even when a cluster has no Schema Registry — pass `avro:<id>` as keySerde or valueSerde.',
+    inputSchema: object({}),
+    run: () => call('avro:list'),
+  },
+  {
+    name: 'save_avro_schema',
+    description:
+      'Save (or update, by id) a local Avro schema. The .avsc document is parsed first and rejected if it does not compile. Returns the full list, so you can pick the id to use as `avro:<id>`.',
+    inputSchema: object(
+      {
+        name: str('Display name, e.g. orders.v1-value'),
+        schema: str('The .avsc document as text'),
+        id: str('Existing schema id to update'),
+      },
+      ['name', 'schema'],
+    ),
+    write: true,
+    run: ({ name, schema, id }) => call('avro:save', { id: id ?? '', name, schema }),
+  },
+  {
+    name: 'delete_avro_schema',
+    description: 'Delete a local Avro schema.',
+    inputSchema: object({ schemaId: str('Schema id from list_avro_schemas') }, ['schemaId']),
+    write: true,
+    run: ({ schemaId }) => call('avro:delete', { schemaId }),
   },
 
   /* -------------------------------------------------------------- terminal */

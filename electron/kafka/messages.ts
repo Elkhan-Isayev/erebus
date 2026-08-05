@@ -20,6 +20,15 @@ const IDLE_TIMEOUT_MS = 8_000;
 const FLUSH_INTERVAL_MS = 120;
 const FLUSH_SIZE = 40;
 
+/**
+ * A live tail can outrun any table. The UI only keeps `liveTailBuffer` rows, so pushing
+ * every message across the IPC boundary just to have it discarded starves the renderer
+ * and, with it, the consumer. Live sessions therefore emit on a fixed cadence and only
+ * send the newest slice; `scanned` still reports the real volume.
+ */
+const LIVE_FLUSH_INTERVAL_MS = 250;
+const LIVE_MAX_PER_FLUSH = 200;
+
 function buildPredicate(expression?: string) {
   if (!expression?.trim()) return null;
   const script = new vm.Script(`(function(key, value, headers, message){ return (${expression}); })`);
@@ -68,13 +77,25 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
   if (sessions.has(sessionId)) throw new Error(`Session ${sessionId} is already running`);
 
   const admin = await adminFor(clusterId);
-  const metadata = await admin.fetchTopicMetadata({ topics: [topic] });
-  const allPartitions = metadata.topics[0]?.partitions.map((p) => p.partitionId).sort((a, b) => a - b) ?? [];
-  const partitions = query.partitions?.length ? allPartitions.filter((p) => query.partitions!.includes(p)) : allPartitions;
-  if (partitions.length === 0) throw new Error(`Topic ${topic} has no matching partitions`);
-
-  const watermarks = await admin.fetchTopicOffsets(topic);
+  // fetchTopicOffsets answers from the brokers themselves; cached metadata can still be
+  // showing a topic as it looked seconds ago, which used to hide whole partitions.
+  const [watermarks, metadata] = await Promise.all([
+    admin.fetchTopicOffsets(topic),
+    admin.fetchTopicMetadata({ topics: [topic] }).catch(() => ({ topics: [] as { partitions: { partitionId: number }[] }[] })),
+  ]);
   const wmByPartition = new Map(watermarks.map((w) => [w.partition, w]));
+
+  const allPartitions = [
+    ...new Set([
+      ...watermarks.map((w) => w.partition),
+      ...(metadata.topics[0]?.partitions.map((p) => p.partitionId) ?? []),
+    ]),
+  ].sort((a, b) => a - b);
+
+  const requested = query.partitions?.length ? new Set(query.partitions) : null;
+  const excluded = (partition: number) => requested !== null && !requested.has(partition);
+  const partitions = requested ? allPartitions.filter((p) => requested.has(p)) : allPartitions;
+  if (partitions.length === 0) throw new Error(`Topic ${topic} has no matching partitions`);
 
   let timestampOffsets: Map<number, string> | null = null;
   if (query.seek === 'timestamp') {
@@ -120,6 +141,8 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
   );
   /** Where each partition should resume — advanced as messages arrive so a rebalance re-seeks correctly. */
   const nextOffsets = new Map(startOffsets);
+  /** Partitions that already reached their end offset in a bounded scan. */
+  const completed = new Set<number>();
 
   const predicate = buildPredicate(query.filterExpression);
   const needle = query.search?.trim().toLowerCase() ?? '';
@@ -129,20 +152,25 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
 
   let scanned = 0;
   let matched = 0;
+  let dropped = 0;
   let finished = false;
   let buffer: KafkaMessage[] = [];
   let flushTimer: NodeJS.Timeout | null = null;
   let idleTimer: NodeJS.Timeout | null = null;
+  let rateWindowStart = Date.now();
+  let rateWindowScanned = 0;
+  let rate = 0;
 
   const flush = () => {
     if (flushTimer) {
       clearTimeout(flushTimer);
       flushTimer = null;
     }
-    if (buffer.length > 0) {
-      emit('consume:messages', { sessionId, messages: buffer });
-      buffer = [];
-    }
+    if (buffer.length === 0) return;
+    const payload = live && buffer.length > LIVE_MAX_PER_FLUSH ? buffer.slice(-LIVE_MAX_PER_FLUSH) : buffer;
+    dropped += buffer.length - payload.length;
+    buffer = [];
+    emit('consume:messages', { sessionId, messages: payload });
   };
 
   const progress = (done: boolean, error?: string): ConsumeProgress => ({
@@ -152,11 +180,26 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
     done,
     error,
     elapsedMs: Date.now() - startedAt,
+    rate,
+    dropped,
   });
 
   const scheduleFlush = () => {
+    if (live) {
+      if (!flushTimer) flushTimer = setTimeout(flush, LIVE_FLUSH_INTERVAL_MS);
+      return;
+    }
     if (buffer.length >= FLUSH_SIZE) return flush();
     if (!flushTimer) flushTimer = setTimeout(flush, FLUSH_INTERVAL_MS);
+  };
+
+  const tickRate = () => {
+    const now = Date.now();
+    const windowMs = now - rateWindowStart;
+    if (windowMs < 1000) return;
+    rate = Math.round((rateWindowScanned / windowMs) * 1000);
+    rateWindowStart = now;
+    rateWindowScanned = 0;
   };
 
   const armIdle = () => {
@@ -237,8 +280,17 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
       if (finished || !isRunning() || isStale()) return;
       const partition = batch.partition;
       if (!active.has(partition)) {
-        pause();
-        return;
+        // The user asked for a subset, or this partition already reached its end offset.
+        if (excluded(partition) || completed.has(partition)) {
+          pause();
+          return;
+        }
+        // Otherwise the broker knows a partition our metadata did not: a topic created
+        // moments ago, or partitions added while we tail. Adopt it rather than drop its
+        // stream on the floor.
+        active.add(partition);
+        if (!endOffsets.has(partition)) endOffsets.set(partition, BigInt(batch.highWatermark ?? '0'));
+        if (!nextOffsets.has(partition)) nextOffsets.set(partition, BigInt(batch.messages[0]?.offset ?? '0'));
       }
       armIdle();
       const end = endOffsets.get(partition) ?? 0n;
@@ -252,10 +304,12 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
         nextOffsets.set(partition, offset + 1n);
         if (!live && offset >= end) {
           active.delete(partition);
+          completed.add(partition);
           pause();
           break;
         }
         scanned++;
+        rateWindowScanned++;
 
         const [key, value] = await Promise.all([
           decode(clusterId, message.key as Buffer | null, query.keySerde),
@@ -290,6 +344,7 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
         }
       }
 
+      tickRate();
       emit('consume:progress', progress(false));
       await heartbeat();
 

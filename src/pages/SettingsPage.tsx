@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Icon } from '@/components/Icons';
-import { Button, Checkbox, Field, Input, KeyValue, PageHead, Segmented } from '@/components/ui';
+import { Button, Checkbox, ConfirmDialog, Field, Input, KeyValue, Modal, PageHead, Segmented, Select } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAppState } from '@/app/AppState';
 import { useToast } from '@/lib/toast';
-import type { TerminalProfile, ThemeMode } from '@shared/types';
+import type { AvroSchemaEntry, TerminalProfile, ThemeMode } from '@shared/types';
 
 /** Saved commands — typically `kubectl port-forward` — with optional start-up on launch. */
 function TerminalProfiles() {
@@ -84,8 +84,134 @@ function TerminalProfiles() {
   );
 }
 
+/** Local Avro schemas — the "Avro plugin" for clusters without a Schema Registry. */
+function AvroSchemas() {
+  const toast = useToast();
+  const { settings, reloadSettings } = useAppState();
+  const schemas = settings.avroSchemas ?? [];
+  const [editing, setEditing] = useState<AvroSchemaEntry | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const blank = (): AvroSchemaEntry => ({
+    id: '',
+    name: '',
+    schema: JSON.stringify(
+      { type: 'record', name: 'Order', fields: [{ name: 'id', type: 'long' }, { name: 'status', type: 'string' }] },
+      null,
+      2,
+    ),
+  });
+
+  const save = async (entry: AvroSchemaEntry) => {
+    if (!entry.name.trim()) return toast.error('Give the schema a name');
+    try {
+      await api.saveAvroSchema({ id: entry.id || undefined, name: entry.name.trim(), schema: entry.schema });
+      await reloadSettings();
+      toast.success(`Saved ${entry.name}`);
+      setEditing(null);
+    } catch (err) {
+      toast.error(err);
+    }
+  };
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="card-head">
+        <h3>Avro schemas</h3>
+        <div className="actions">
+          <Button size="sm" onClick={() => setEditing(blank())}>
+            <Icon.Plus width={13} /> Add schema
+          </Button>
+        </div>
+      </div>
+      <div className="card-pad">
+        <p className="subtle" style={{ marginTop: 0 }}>
+          Paste an <code>.avsc</code> document and it appears as a deserializer in the message browser and in Produce —
+          for brokers with no Schema Registry, or one you cannot reach. Payloads carrying a Confluent header are handled
+          too: the five leading bytes are skipped.
+        </p>
+        {schemas.length === 0 && <div className="subtle">No schemas yet.</div>}
+        {schemas.map((entry) => (
+          <div key={entry.id} className="profile-row" style={{ gridTemplateColumns: '1fr 2fr auto auto' }}>
+            <span className="mono">{entry.name}</span>
+            <span className="subtle mono" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {entry.schema.replace(/\s+/g, ' ').slice(0, 80)}
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => setEditing(entry)}>
+              <Icon.Edit width={13} /> Edit
+            </Button>
+            <Button variant="ghost" iconOnly title="Delete schema" onClick={() => setDeleting(entry.id)}>
+              <Icon.Trash width={14} />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      {editing && (
+        <Modal
+          wide
+          title={editing.id ? `Edit ${editing.name}` : 'Add Avro schema'}
+          onClose={() => setEditing(null)}
+          footer={
+            <>
+              <Button
+                className="left"
+                onClick={async () => {
+                  const result = await api.validateAvroSchema(editing.schema);
+                  if (result.valid) toast.success('Schema parses');
+                  else toast.error(result.error ?? 'Invalid schema');
+                }}
+              >
+                Validate
+              </Button>
+              <Button onClick={() => setEditing(null)}>Cancel</Button>
+              <Button variant="primary" onClick={() => void save(editing)}>
+                Save schema
+              </Button>
+            </>
+          }
+        >
+          <Field label="Name" hint="Shown in the serde dropdowns">
+            <Input
+              className="mono"
+              autoFocus
+              value={editing.name}
+              placeholder="orders.v1-value"
+              onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+            />
+          </Field>
+          <Field label="Schema (.avsc)">
+            <textarea
+              className="textarea"
+              rows={16}
+              spellCheck={false}
+              value={editing.schema}
+              onChange={(e) => setEditing({ ...editing, schema: e.target.value })}
+            />
+          </Field>
+        </Modal>
+      )}
+
+      {deleting && (
+        <ConfirmDialog
+          danger
+          title="Delete this schema?"
+          message="Messages you were reading with it fall back to the raw payload."
+          confirmLabel="Delete schema"
+          onClose={() => setDeleting(null)}
+          onConfirm={async () => {
+            await api.deleteAvroSchema(deleting);
+            await reloadSettings();
+            toast.success('Schema deleted');
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
 export function SettingsPage() {
-  const { settings, saveSettings, info } = useAppState();
+  const { settings, saveSettings, info, clusters } = useAppState();
 
   return (
     <>
@@ -108,6 +234,31 @@ export function SettingsPage() {
                 ]}
               />
             </Field>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-head">
+            <h3>On launch</h3>
+          </div>
+          <div className="card-pad">
+            <Field label="Open this cluster" hint="Erebus lands here every time it starts.">
+              <Select
+                value={settings.defaultClusterId ?? ''}
+                onChange={(e) => void saveSettings({ defaultClusterId: e.target.value || null })}
+              >
+                <option value="">First cluster in the list</option>
+                {clusters.map((cluster) => (
+                  <option key={cluster.id} value={cluster.id}>
+                    {cluster.name} ({cluster.kind === 'rabbitmq' ? 'RabbitMQ' : 'Kafka'})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+            <p className="subtle" style={{ margin: 0 }}>
+              Terminal profiles marked <b>auto-start</b> below run at the same moment — port-forwards are up before the
+              first screen is painted.
+            </p>
           </div>
         </div>
 
@@ -139,6 +290,8 @@ export function SettingsPage() {
       </div>
 
       <TerminalProfiles />
+
+      <AvroSchemas />
 
       <div className="card" style={{ marginTop: 14 }}>
         <div className="card-head">

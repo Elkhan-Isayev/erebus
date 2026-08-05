@@ -64,7 +64,9 @@ function ResetOffsetsModal({
                   value: value || undefined,
                   partitions: partitions
                     .split(',')
-                    .map((p) => Number(p.trim()))
+                    .map((p) => p.trim())
+                    .filter(Boolean)
+                    .map(Number)
                     .filter((p) => Number.isInteger(p) && p >= 0),
                 });
                 toast.success('Offsets reset');

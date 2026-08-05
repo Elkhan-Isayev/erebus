@@ -21,6 +21,28 @@ import { ProduceModal } from './ProduceModal';
 
 const SERDES: SerdeKind[] = ['auto', 'string', 'json', 'avro', 'protobuf', 'base64', 'hex', 'int32', 'int64'];
 
+/** Built-in serdes plus every Avro schema saved in settings. */
+function SerdeOptions({ schemas }: { schemas: { id: string; name: string }[] }) {
+  return (
+    <>
+      {SERDES.map((s) => (
+        <option key={s} value={s}>
+          {s}
+        </option>
+      ))}
+      {schemas.length > 0 && (
+        <optgroup label="Avro schemas">
+          {schemas.map((entry) => (
+            <option key={entry.id} value={`avro:${entry.id}`}>
+              avro · {entry.name}
+            </option>
+          ))}
+        </optgroup>
+      )}
+    </>
+  );
+}
+
 function MessageDetail({ message, onClose }: { message: KafkaMessage; onClose: () => void }) {
   const render = (payload: KafkaMessage['key']) => {
     if (payload.text === null) return <span className="subtle">null</span>;
@@ -128,16 +150,32 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
   const [producing, setProducing] = useState(false);
 
   const sessionRef = useRef<string | null>(null);
+  const pendingRef = useRef<KafkaMessage[]>([]);
   const bufferLimit = live ? settings.liveTailBuffer : Math.max(limit, 1);
+
+  // Incoming batches are staged in a ref and committed on a timer: a fast tail must not
+  // turn into one React render per batch.
+  useEffect(() => {
+    const commit = setInterval(() => {
+      if (pendingRef.current.length === 0) return;
+      const incoming = pendingRef.current;
+      pendingRef.current = [];
+      setMessages((prev) => {
+        const next = prev.length === 0 ? incoming : [...prev, ...incoming];
+        return next.length > bufferLimit ? next.slice(next.length - bufferLimit) : next;
+      });
+    }, 220);
+    return () => clearInterval(commit);
+  }, [bufferLimit]);
 
   useEffect(() => {
     const offData = bridge.on('consume:messages', (payload) => {
       const data = payload as { sessionId: string; messages: KafkaMessage[] };
       if (data.sessionId !== sessionRef.current) return;
-      setMessages((prev) => {
-        const next = [...prev, ...data.messages];
-        return next.length > bufferLimit ? next.slice(next.length - bufferLimit) : next;
-      });
+      pendingRef.current.push(...data.messages);
+      if (pendingRef.current.length > bufferLimit) {
+        pendingRef.current = pendingRef.current.slice(-bufferLimit);
+      }
     });
     const offProgress = bridge.on('consume:progress', (payload) => {
       const data = payload as ConsumeProgress;
@@ -176,13 +214,16 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
       const isLive = options.live ?? live;
       const sessionId = crypto.randomUUID();
       sessionRef.current = sessionId;
+      pendingRef.current = [];
       setMessages([]);
       setProgress(null);
       setRunning(true);
       try {
         const partitions = partitionInput
           .split(',')
-          .map((p) => Number(p.trim()))
+          .map((p) => p.trim())
+          .filter(Boolean)
+          .map(Number)
           .filter((p) => Number.isInteger(p) && p >= 0);
         await api.consume({
           clusterId: cluster.id,
@@ -290,22 +331,14 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
         </Field>
 
         <Field label="Key">
-          <Select value={keySerde} onChange={(e) => setKeySerde(e.target.value as SerdeKind)} style={{ width: 108 }}>
-            {SERDES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+          <Select value={keySerde} onChange={(e) => setKeySerde(e.target.value as SerdeKind)} style={{ width: 128 }}>
+            <SerdeOptions schemas={settings.avroSchemas ?? []} />
           </Select>
         </Field>
 
         <Field label="Value">
-          <Select value={valueSerde} onChange={(e) => setValueSerde(e.target.value as SerdeKind)} style={{ width: 108 }}>
-            {SERDES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
+          <Select value={valueSerde} onChange={(e) => setValueSerde(e.target.value as SerdeKind)} style={{ width: 128 }}>
+            <SerdeOptions schemas={settings.avroSchemas ?? []} />
           </Select>
         </Field>
 
@@ -376,13 +409,19 @@ export function MessagesView({ cluster, topic, partitionCount }: { cluster: Clus
             <span>{formatNumber(progress.scanned)} scanned</span>
             <span className="subtle">·</span>
             <span>{(progress.elapsedMs / 1000).toFixed(1)}s</span>
+            {progress.rate > 0 && (
+              <>
+                <span className="subtle">·</span>
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{formatNumber(progress.rate)} msg/s</span>
+              </>
+            )}
           </>
         )}
         {live && (
           <>
             <span className="subtle">·</span>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span className="live-dot" /> tailing, keeping last {settings.liveTailBuffer}
+              <span className="live-dot" /> tailing, newest {settings.liveTailBuffer}
             </span>
           </>
         )}

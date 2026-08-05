@@ -12,6 +12,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   showInternalTopics: false,
   liveTailBuffer: 500,
   terminals: [],
+  avroSchemas: [],
+  defaultClusterId: null,
 };
 
 /** Secrets are encrypted with the OS keychain when it is available. */
@@ -90,7 +92,12 @@ export function read(): PersistedState {
     const parsed = JSON.parse(fs.readFileSync(FILE(), 'utf8')) as PersistedState;
     cache = {
       clusters: (parsed.clusters ?? []).map(normalizeCluster).map(SECRET_MAPPERS(decrypt)),
-      settings: { ...DEFAULT_SETTINGS, ...(parsed.settings ?? {}), terminals: parsed.settings?.terminals ?? [] },
+      settings: {
+        ...DEFAULT_SETTINGS,
+        ...(parsed.settings ?? {}),
+        terminals: parsed.settings?.terminals ?? [],
+        avroSchemas: parsed.settings?.avroSchemas ?? [],
+      },
     };
   } catch {
     cache = { clusters: [], settings: { ...DEFAULT_SETTINGS } };

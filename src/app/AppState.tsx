@@ -7,6 +7,7 @@ interface AppStateValue {
   reloadClusters: () => Promise<ClusterConfig[]>;
   settings: AppSettings;
   saveSettings: (patch: Partial<AppSettings>) => Promise<void>;
+  reloadSettings: () => Promise<void>;
   theme: ThemeMode;
   resolvedTheme: 'light' | 'dark';
   setTheme: (theme: ThemeMode) => void;
@@ -23,6 +24,8 @@ const DEFAULT_SETTINGS: AppSettings = {
   showInternalTopics: false,
   liveTailBuffer: 500,
   terminals: [],
+  avroSchemas: [],
+  defaultClusterId: null,
 };
 
 export function AppStateProvider({ children }: { children: ReactNode }) {
@@ -71,6 +74,10 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     setSettings(saved);
   }, []);
 
+  const reloadSettings = useCallback(async () => {
+    setSettings(await api.getSettings());
+  }, []);
+
   const setTheme = useCallback((theme: ThemeMode) => void saveSettings({ theme }), [saveSettings]);
 
   const cycleTheme = useCallback(() => {
@@ -85,6 +92,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       reloadClusters,
       settings,
       saveSettings,
+      reloadSettings,
       theme: settings.theme,
       resolvedTheme,
       setTheme,
@@ -92,7 +100,7 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
       info,
       ready,
     }),
-    [clusters, reloadClusters, settings, saveSettings, resolvedTheme, setTheme, cycleTheme, info, ready],
+    [clusters, reloadClusters, settings, saveSettings, reloadSettings, resolvedTheme, setTheme, cycleTheme, info, ready],
   );
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

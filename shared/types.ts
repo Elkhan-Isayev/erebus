@@ -79,6 +79,21 @@ export interface AppSettings {
   liveTailBuffer: number;
   /** Saved terminal commands, e.g. kubectl port-forwards. */
   terminals: TerminalProfile[];
+  /** Avro schemas kept locally, for brokers without a Schema Registry. */
+  avroSchemas: AvroSchemaEntry[];
+  /** Cluster to open when the app starts; falls back to the first one. */
+  defaultClusterId?: string | null;
+}
+
+/**
+ * A schema the user pasted in, used to read and write plain Avro binary — the
+ * "Avro plugin" for clusters that have no registry, or one you cannot reach.
+ */
+export interface AvroSchemaEntry {
+  id: string;
+  name: string;
+  /** The .avsc document as text. */
+  schema: string;
 }
 
 /** A named command that can open in a terminal tab, optionally on startup. */
@@ -187,7 +202,20 @@ export interface CreateTopicInput {
 
 /* ----------------------------------------------------------------- messages */
 
-export type SerdeKind = 'auto' | 'string' | 'json' | 'avro' | 'protobuf' | 'base64' | 'hex' | 'int32' | 'int64';
+export type SerdeKind =
+  | 'auto'
+  | 'string'
+  | 'json'
+  | 'avro'
+  | 'protobuf'
+  | 'base64'
+  | 'hex'
+  | 'int32'
+  | 'int64'
+  /** A locally defined Avro schema: `avro:<schema id>`. */
+  | `avro:${string}`;
+
+export type ProduceSerde = 'string' | 'json' | 'base64' | 'avro' | `avro:${string}`;
 
 export interface DecodedPayload {
   /** Human readable rendering used by the UI. */
@@ -240,6 +268,10 @@ export interface ConsumeProgress {
   done: boolean;
   error?: string;
   elapsedMs: number;
+  /** Messages per second over the last second, for the live tail read-out. */
+  rate: number;
+  /** Matched messages the engine deliberately did not forward to the UI (live tail only). */
+  dropped: number;
 }
 
 export interface ProduceInput {
@@ -249,8 +281,8 @@ export interface ProduceInput {
   key?: string | null;
   value: string | null;
   headers: { key: string; value: string }[];
-  keySerde: 'string' | 'json' | 'base64' | 'avro';
-  valueSerde: 'string' | 'json' | 'base64' | 'avro';
+  keySerde: ProduceSerde;
+  valueSerde: ProduceSerde;
   /** Schema Registry subject overrides when *Serde is avro. */
   keySubject?: string | null;
   valueSubject?: string | null;

@@ -16,7 +16,7 @@ terminal tabs. Then hand the whole thing to Claude Code over MCP.
 [![License](https://img.shields.io/badge/license-Apache_2.0-2f9e6e?style=for-the-badge&labelColor=1a1d2b)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/Elkhan-Isayev/erebus/total?style=for-the-badge&color=0ea5e9&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases)
 
-[**Download**](#-download) · [**Features**](#-features) · [**MCP for Claude Code**](#-mcp--claude-code-drives-erebus) · [**Terminal**](#-terminal) · [**Development**](#-development)
+[**Download**](#-download) · [**Features**](#-features) · [**MCP for Claude Code**](#-mcp--claude-code-drives-erebus) · [**Terminal**](#-terminal) · [**Stress test**](#-stress-test) · [**Development**](#-development)
 
 <br>
 
@@ -71,6 +71,27 @@ message viewer, same muscle memory.
 </td>
 <td width="33%" valign="top">
 
+### 🧬 Avro plugin
+
+<div align="center">
+<img src="docs/avro-plugin-dark.png" alt="Avro payloads decoded from a local schema" width="92%">
+<br><em>31–45 byte Avro records, decoded in place from a schema pasted into settings</em>
+</div>
+
+A Schema Registry is the happy path, and Erebus speaks it. When there is no registry — or the one you have is behind a
+VPN you are not on — save the `.avsc` locally instead:
+
+1. **Settings › Avro schemas › Add schema**, paste the document, hit **Validate**, save.
+2. Pick `avro · <name>` as the key or value deserializer in the message browser, or as a serializer in **Produce**.
+
+The same schema works in both directions, and `avro:<id>` is accepted by the MCP tools, so an agent can read and write
+Avro too:
+
+```jsonc
+// consume_messages
+{ "clusterId": "preprod", "topic": "orders.v1", "valueSerde": "avro:orders-avsc", "limit": 20 }
+```
+
 ### 🖥 Terminal tabs inside
 `kubectl port-forward` where you actually need it. Save profiles and mark them **auto-start**, and the tunnels are up
 before the window has finished painting.
@@ -79,8 +100,8 @@ before the window has finished painting.
 <td width="33%" valign="top">
 
 ### 🤖 An MCP server
-Point Claude Code at Erebus and it gets **46 tools** — inspect, produce, consume, operate, port-forward. Read-only
-clusters stay read-only for the agent too.
+Point Claude Code at Erebus and it gets **51 tools** — inspect, produce, consume, operate, port-forward, and set up
+what happens on the next launch. Read-only clusters stay read-only for the agent too.
 
 </td>
 </tr>
@@ -103,6 +124,10 @@ Follows the system by default, switchable with `⌘⇧L`. Every screen, every ta
 ### 🛡 Read-only mode
 Mark production read-only and produce, delete, purge and offset resets are refused **in the main process** — not
 merely greyed out in the UI.
+
+### 🧬 Avro without a registry
+Paste an `.avsc` and it becomes a deserializer everywhere, for brokers that have no Schema Registry — or one you
+cannot reach from your laptop.
 
 </td>
 </tr>
@@ -138,6 +163,7 @@ merely greyed out in the UI.
 | **Produce** | Key and value serializers (including Avro against a registered subject), headers, target partition, compression, null keys. |
 | **Consumer groups** | State, members, assignments, per-partition committed offset, end offset and lag. Reset to earliest, latest, an offset or a timestamp. Delete a group. |
 | **Schema Registry** | Subjects, versions, highlighted schema. Register AVRO / JSON / PROTOBUF, check compatibility first, change the compatibility level, delete a version or a subject. |
+| **Avro plugin** | Local `.avsc` schemas, validated on save, offered as `avro · <name>` in every serde picker — reading *and* writing. Confluent-framed payloads are handled too: the five header bytes are skipped. No registry required. |
 | **Kafka Connect** | Several Connect workers per cluster. State, class, topics, task health. Pause, resume, restart, restart a single task, edit config, create, delete — with failure traces in place. |
 | **ksqlDB** | Any statement with `⌘↵`; results as a table, plus the raw response when you need it. |
 | **ACL** | Every rule with principal, permission, operation, resource and pattern type. Create and delete. |
@@ -189,6 +215,27 @@ already requires — and no AMQP client in the bundle.
 
 <br>
 
+### 🧬 Avro plugin
+
+<div align="center">
+<img src="docs/avro-plugin-dark.png" alt="Avro payloads decoded from a local schema" width="92%">
+<br><em>31–45 byte Avro records, decoded in place from a schema pasted into settings</em>
+</div>
+
+A Schema Registry is the happy path, and Erebus speaks it. When there is no registry — or the one you have is behind a
+VPN you are not on — save the `.avsc` locally instead:
+
+1. **Settings › Avro schemas › Add schema**, paste the document, hit **Validate**, save.
+2. Pick `avro · <name>` as the key or value deserializer in the message browser, or as a serializer in **Produce**.
+
+The same schema works in both directions, and `avro:<id>` is accepted by the MCP tools, so an agent can read and write
+Avro too:
+
+```jsonc
+// consume_messages
+{ "clusterId": "preprod", "topic": "orders.v1", "valueSerde": "avro:orders-avsc", "limit": 20 }
+```
+
 ### 🖥 Terminal
 
 <div align="center">
@@ -204,16 +251,27 @@ An IDE-style panel at the bottom of the window — <kbd>⌘</kbd><kbd>`</kbd> to
 - <kbd>Ctrl</kbd><kbd>C</kbd> signals the whole **process group**, so a port-forward really stops. Command history with
   <kbd>↑</kbd><kbd>↓</kbd>, ANSI colours, and scrollback that survives navigating around the app.
 
-<details>
-<summary>Configure profiles</summary>
+### ▶ What happens on launch
 
-<br>
+Erebus can bring your whole working set up by itself: **open a chosen cluster** and **run its port-forwards** the
+moment it starts.
 
-<div align="center"><img src="docs/settings-light.png" alt="Terminal profiles in settings" width="88%"></div>
+<div align="center"><img src="docs/settings-light.png" alt="Startup, terminal profiles and Avro schemas in settings" width="92%"></div>
 
-Or let the agent do it: `terminal_save_profile` with `autoStart: true`.
+Set it in **Settings**, or have the agent do it in one call:
 
-</details>
+```jsonc
+// configure_startup
+{
+  "defaultClusterId": "preprod-kafka",
+  "terminals": [
+    { "name": "preprod kafka",   "command": "kubectl port-forward -n data svc/kafka 9092:9092",           "autoStart": true },
+    { "name": "schema registry", "command": "kubectl port-forward -n data svc/schema-registry 8081:8081", "autoStart": true }
+  ]
+}
+```
+
+Next launch: two terminal tabs already forwarding, and `preprod-kafka` selected in the sidebar.
 
 > [!NOTE]
 > These are pipes, not a pty — ideal for CLIs and long-running port-forwards, not for full-screen TUIs like `vim` or `htop`.
@@ -256,6 +314,7 @@ claude mcp add erebus -- /Applications/Erebus.app/Contents/MacOS/Erebus --mcp
 
 The server reuses the connections you configured in the app — keychain secrets included — and calls the **same IPC
 handlers the UI does**, so the agent can never do something the app cannot, or slip past a read-only cluster.
+**51 tools**, all of them things you can also do by hand:
 
 <div align="center">
 
@@ -271,6 +330,8 @@ handlers the UI does**, so the agent can never do something the app cannot, or s
 | **ksqlDB · ACL** | `ksql_execute` · `list_acls` |
 | **RabbitMQ** | `rabbit_overview` · `rabbit_list_queues` · `rabbit_describe_queue` · `rabbit_get_messages` · `rabbit_publish` · `rabbit_manage_queue` · `rabbit_list_exchanges` · `rabbit_manage_exchange` · `rabbit_list_bindings` · `rabbit_bind` · `rabbit_list_connections` |
 | **Terminal** | `terminal_list` · `terminal_run` · `terminal_output` · `terminal_stop` · `terminal_list_profiles` · `terminal_save_profile` · `terminal_delete_profile` |
+| **Startup** | `configure_startup` · `get_startup` |
+| **Avro plugin** | `list_avro_schemas` · `save_avro_schema` · `delete_avro_schema` |
 
 </div>
 
@@ -282,9 +343,37 @@ So you can simply ask:
 >
 > *"Which consumer group is lagging, on which partitions, and since when?"*
 >
-> *"Set up a port-forward profile for the schema registry and start it on every launch."*
+> *"Set up a port-forward profile for the schema registry and start it on every launch, and open preprod-kafka when I launch the app."*
+>
+> *"Save this .avsc as orders.v1-value and show me the last 20 messages decoded with it."*
 
 <br>
+
+## ⚡ Stress test
+
+Erebus is measured, not hoped about. A paced producer pushed **60 000 messages in 60 seconds** into a six-partition
+topic on a local Kafka 3.9 (KRaft), while the app tailed the same topic live with the window open.
+
+<div align="center">
+<img src="docs/stress-live-tail-dark.png" alt="Live tail keeping up with 1,000 messages per second" width="92%">
+<br><em>Mid-run: 22 000 messages in, 1 190 msg/s, table pinned to the newest 500</em>
+</div>
+
+| | Result |
+| --- | --- |
+| Produced | **60 000 / 60 000** in 59.5 s — 1 008 msg/s, send latency p50 5 ms, p95 7 ms, max 14 ms |
+| Live tail consumed | **60 000 / 60 000** — sustained ≈1 015 msg/s, nothing missed, no back-pressure at the end of the run |
+| Bulk scan (non-live) | **60 000 messages decoded in 3.2 s — 18 500 msg/s** |
+| Renderer | 10 MB JS heap, no errors, UI responsive throughout |
+| Machine | Apple M4 Pro, 14 cores, 24 GB; single broker, 6 partitions, ~200-byte JSON records |
+
+The run paid for itself twice — it exposed two real defects, both fixed:
+
+- an empty **Partitions** box was parsed as `[0]` (`Number('') === 0`), so the live tail and the offset reset silently
+  worked on partition 0 only;
+- unknown partitions were paused for good, which turned lagging topic metadata into a permanently half-read stream.
+
+Reproduce it yourself: `scripts/` has nothing magic — a paced `kafkajs` producer and the app's own consume engine.
 
 ## ✦ More of the app
 
@@ -429,7 +518,7 @@ electron/            main process — nothing here is reachable from the page
   rabbit/api.ts        RabbitMQ over the management HTTP API
   rest/                Schema Registry, Kafka Connect and ksqlDB clients
   terminal/manager.ts  sessions, scrollback and process groups
-  mcp/                 stdio JSON-RPC server and the 46-tool catalogue
+  mcp/                 stdio JSON-RPC server and the 51-tool catalogue
   store.ts             connections, encrypted with safeStorage
   ipc.ts               the single surface the UI and MCP both call
 src/                 renderer — React 18, no UI framework, hand-written CSS

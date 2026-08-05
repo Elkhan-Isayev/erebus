@@ -1,6 +1,7 @@
 import avro from 'avsc';
-import type { DecodedPayload, SerdeKind } from '../../shared/types';
+import type { DecodedPayload, ProduceSerde, SerdeKind } from '../../shared/types';
 import { hasRegistry, registerSchema, schemaById, getVersion } from '../rest/schemaRegistry';
+import { getSettings } from '../store';
 
 /** Confluent wire format: magic byte 0x00 + big-endian schema id + payload. */
 const MAGIC = 0x00;
@@ -38,6 +39,41 @@ function avroType(schema: string): avro.Type {
     avroTypeCache.set(schema, type);
   }
   return type;
+}
+
+/* ------------------------------------------------------- local avro plugin */
+
+const LOCAL_PREFIX = 'avro:';
+
+export const isLocalAvro = (serde: string): boolean => serde.startsWith(LOCAL_PREFIX);
+
+function localSchema(serde: string): { name: string; type: avro.Type } {
+  const ref = serde.slice(LOCAL_PREFIX.length);
+  const entry = (getSettings().avroSchemas ?? []).find((s) => s.id === ref || s.name === ref);
+  if (!entry) throw new Error(`Avro schema "${ref}" is not defined — add it under Settings › Avro schemas`);
+  return { name: entry.name, type: avroType(entry.schema) };
+}
+
+function decodeLocalAvro(buf: Buffer, serde: string): DecodedPayload {
+  const { name, type } = localSchema(serde);
+  // Tolerate a Confluent header: the schema is ours, the five leading bytes are not payload.
+  const wire = looksLikeWireFormat(buf);
+  const body = wire ? buf.subarray(5) : buf;
+  try {
+    return {
+      text: JSON.stringify(type.fromBuffer(body), jsonSafe, 2),
+      serde: `avro:${name}`,
+      schemaId: wire ? buf.readInt32BE(1) : undefined,
+      size: buf.length,
+    };
+  } catch (err) {
+    return {
+      text: buf.toString('base64'),
+      serde: 'base64',
+      size: buf.length,
+      error: `Avro schema "${name}" does not fit this payload: ${(err as Error).message}`,
+    };
+  }
 }
 
 async function decodeWireFormat(clusterId: string, buf: Buffer): Promise<DecodedPayload> {
@@ -92,6 +128,7 @@ export async function decode(clusterId: string, buf: Buffer | null, serde: Serde
   if (size === 0) return { text: '', serde: 'empty', size };
 
   try {
+    if (isLocalAvro(serde)) return decodeLocalAvro(buf, serde);
     switch (serde) {
       case 'string':
         return { text: buf.toString('utf8'), serde: 'string', size };
@@ -135,10 +172,14 @@ export async function decode(clusterId: string, buf: Buffer | null, serde: Serde
 export async function encode(
   clusterId: string,
   input: string | null | undefined,
-  serde: 'string' | 'json' | 'base64' | 'avro',
+  serde: ProduceSerde,
   subject?: string | null,
 ): Promise<Buffer | null> {
   if (input === null || input === undefined) return null;
+  if (isLocalAvro(serde)) {
+    // Plain Avro binary — no registry, so no wire-format header either.
+    return localSchema(serde).type.toBuffer(JSON.parse(input));
+  }
   switch (serde) {
     case 'base64':
       return Buffer.from(input, 'base64');
@@ -161,7 +202,7 @@ export async function encode(
   }
 }
 
-/** Exposed so the UI can validate a schema before registering it. */
+/** Exposed so the UI can validate a schema before saving or registering it. */
 export function validateAvroSchema(schema: string): { valid: boolean; error?: string } {
   try {
     avro.Type.forSchema(JSON.parse(schema));

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import type {
   AclEntry,
   AppSettings,
+  AvroSchemaEntry,
   ClusterConfig,
   ConsumeQuery,
   CreateTopicInput,
@@ -234,6 +235,24 @@ export const handlers: Record<string, Handler> = {
   'terminal:output': ({ sessionId, maxChars }: { sessionId: string; maxChars?: number }) =>
     terminal.output(sessionId, maxChars),
   'terminal:rename': ({ sessionId, name }: { sessionId: string; name: string }) => terminal.rename(sessionId, name),
+  'avro:list': () => store.getSettings().avroSchemas ?? [],
+  'avro:save': ({ id, name, schema }: AvroSchemaEntry) => {
+    const check = validateAvroSchema(schema);
+    if (!check.valid) throw new Error(`Not a valid Avro schema: ${check.error}`);
+    const schemas = store.getSettings().avroSchemas ?? [];
+    const entryId = id || crypto.randomUUID();
+    const next = schemas.some((s) => s.id === entryId)
+      ? schemas.map((s) => (s.id === entryId ? { id: entryId, name, schema } : s))
+      : [...schemas, { id: entryId, name, schema }];
+    store.updateSettings({ avroSchemas: next });
+    return next;
+  },
+  'avro:delete': ({ schemaId }: { schemaId: string }) => {
+    const next = (store.getSettings().avroSchemas ?? []).filter((s) => s.id !== schemaId);
+    store.updateSettings({ avroSchemas: next });
+    return next;
+  },
+
   'terminal:profiles': () => store.getSettings().terminals ?? [],
   'terminal:saveProfile': (profile: TerminalProfile) => {
     const profiles = store.getSettings().terminals ?? [];

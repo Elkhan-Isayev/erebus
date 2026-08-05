@@ -1,6 +1,7 @@
 import type {
   AclEntry,
   AppSettings,
+  AvroSchemaEntry,
   BrokerInfo,
   ClusterConfig,
   ClusterOverview,
@@ -157,6 +158,12 @@ export const api = {
     call<void>('connect:restart', { clusterId, connectId, name }),
   restartConnectorTask: (clusterId: string, connectId: string, name: string, taskId: number) =>
     call<void>('connect:restartTask', { clusterId, connectId, name, taskId }),
+
+  /* avro schemas (local plugin) */
+  avroSchemas: () => call<AvroSchemaEntry[]>('avro:list'),
+  saveAvroSchema: (entry: { id?: string; name: string; schema: string }) => call<AvroSchemaEntry[]>('avro:save', entry),
+  deleteAvroSchema: (schemaId: string) => call<AvroSchemaEntry[]>('avro:delete', { schemaId }),
+  validateAvroSchema: (schema: string) => call<{ valid: boolean; error?: string }>('schemas:validate', { schema }),
 
   /* terminal */
   terminalList: () => call<TerminalSession[]>('terminal:list'),
