@@ -539,12 +539,21 @@ it finishes — Erebus never commits offsets on your groups.
 
 ### Release
 
-Tag and push. GitHub Actions builds macOS, Windows and Linux and attaches every artifact to the release:
+Tag and push. GitHub Actions builds macOS, Windows and Linux, **installs and launches every
+artifact it produced** — dmg bundle, deb, AppImage and the NSIS installer, each one asked to
+answer over MCP — and only then attaches them to the release. A build that cannot start is
+never published.
 
 ```bash
 npm version minor
 git push --follow-tags
+
+# GitHub occasionally ignores the tag push and creates no run; start it on the tag itself:
+gh workflow run Release --ref v0.3.0
 ```
+
+Dispatching on the tag is equivalent: `github.ref` is the tag, so the publish job runs exactly
+as it would have.
 
 <br>
 
