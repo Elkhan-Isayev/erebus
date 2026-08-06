@@ -48,9 +48,11 @@ Everything else — checksums, zip and tar.gz — is on the [**releases page**](
 
 </div>
 
-> [!NOTE]
-> The builds are **not code-signed**. On macOS, right-click the app → *Open* the first time, or run
-> `xattr -cr /Applications/Erebus.app`. On Linux, `chmod +x Erebus-linux-x86_64.AppImage` before launching.
+> [!IMPORTANT]
+> The builds carry an **ad-hoc signature, not an Apple Developer one**, so macOS asks before the first launch:
+> right-click the app → **Open** → *Open*, or run `xattr -dr com.apple.quarantine /Applications/Erebus.app`.
+> Windows SmartScreen behaves the same way: **More info** → *Run anyway*. On Linux, `chmod +x` the AppImage.
+> Every release is installed and launched on all three platforms in CI before it is published.
 
 <br>
 

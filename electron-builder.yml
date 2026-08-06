@@ -21,6 +21,10 @@ asarUnpack: []
 
 npmRebuild: false
 
+# Without a developer identity electron-builder ships an unsigned bundle, which macOS
+# will not launch from a browser download at all. The hook ad-hoc signs it.
+afterPack: scripts/mac-adhoc-sign.cjs
+
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.png
@@ -87,9 +91,33 @@ appImage:
 
 deb:
   artifactName: ${productName}-linux-${arch}.${ext}
+  # electron-builder's default list misses libasound2, so the app installed cleanly and
+  # then failed to start with "libasound.so.2: cannot open shared object file".
+  depends:
+    - libgtk-3-0
+    - libnotify4
+    - libnss3
+    - libxss1
+    - libxtst6
+    - xdg-utils
+    - libatspi2.0-0
+    - libuuid1
+    - libsecret-1-0
+    - libasound2
 
 rpm:
   artifactName: ${productName}-linux-${arch}.${ext}
+  depends:
+    - gtk3
+    - libnotify
+    - nss
+    - libXScrnSaver
+    - libXtst
+    - xdg-utils
+    - at-spi2-core
+    - libuuid
+    - libsecret
+    - alsa-lib
 
 publish:
   provider: github

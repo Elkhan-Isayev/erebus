@@ -58,6 +58,45 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: npx electron-builder --win --publish never
 
+      # A packaged app that will not start is the bug users meet first, and no unit test
+      # sees it. Every artifact is installed and launched before it can be published.
+      - name: Verify macOS build installs and launches
+        if: matrix.os == 'macos-latest'
+        run: |
+          set -euo pipefail
+          for app in release/mac-arm64/Erebus.app release/mac/Erebus.app; do
+            [ -d "$app" ] || continue
+            echo "== $app"
+            codesign --verify --deep --strict --verbose=1 "$app"
+          done
+          node scripts/smoke-launch.mjs "release/mac-arm64/Erebus.app/Contents/MacOS/Erebus"
+
+      - name: Verify Linux build installs and launches
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          set -euo pipefail
+          sudo apt-get install -y ./release/Erebus-linux-amd64.deb xvfb
+          node scripts/smoke-launch.mjs /opt/Erebus/erebus --xvfb
+          chmod +x release/Erebus-linux-x86_64.AppImage
+          ./release/Erebus-linux-x86_64.AppImage --appimage-extract > /dev/null
+          node scripts/smoke-launch.mjs "$PWD/squashfs-root/erebus" --xvfb
+
+      - name: Verify Windows build installs and launches
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Start-Process -FilePath 'release/Erebus-win-x64-setup.exe' -ArgumentList '/S' -Wait
+          $candidates = @(
+            "$env:LOCALAPPDATA\Programs\Erebus\Erebus.exe",
+            "$env:ProgramFiles\Erebus\Erebus.exe",
+            "${env:ProgramFiles(x86)}\Erebus\Erebus.exe"
+          )
+          $exe = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $exe) { throw "installer did not put Erebus.exe anywhere we looked" }
+          Write-Host "installed at $exe"
+          node scripts/smoke-launch.mjs $exe
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
