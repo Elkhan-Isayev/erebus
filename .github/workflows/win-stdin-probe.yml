@@ -16,14 +16,13 @@ jobs:
         with:
           node-version: 24
 
-      - name: Install the published Windows build
+      - name: Get the published Windows build
         shell: pwsh
         run: |
-          $url = 'https://github.com/Elkhan-Isayev/erebus/releases/download/v0.2.2/Erebus-win-x64-setup.exe'
-          Invoke-WebRequest -Uri $url -OutFile setup.exe
-          Start-Process -FilePath .\setup.exe -ArgumentList '/S' -Wait
-          $exe = "$env:LOCALAPPDATA\Programs\Erebus\Erebus.exe"
-          if (!(Test-Path $exe)) { throw 'not installed' }
+          $url = 'https://github.com/Elkhan-Isayev/erebus/releases/download/v0.2.2/Erebus-win-x64-portable.exe'
+          Invoke-WebRequest -Uri $url -OutFile erebus-portable.exe
+          $exe = (Resolve-Path .\erebus-portable.exe).Path
+          Write-Host "portable at $exe"
           echo "EREBUS_EXE=$exe" >> $env:GITHUB_ENV
 
       - name: Probe stdio strategies
