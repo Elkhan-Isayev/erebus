@@ -1,7 +1,7 @@
 {
   "name": "erebus",
   "productName": "Erebus",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "description": "A fast, cross-platform desktop client for Apache Kafka — browse, produce, consume and administer your clusters.",
   "author": {
     "name": "Elkhan Isayev",
