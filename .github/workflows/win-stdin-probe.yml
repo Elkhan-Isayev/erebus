@@ -27,30 +27,4 @@ jobs:
 
       - name: Probe stdio strategies
         shell: pwsh
-        run: |
-          node -e "
-          const { spawn } = require('node:child_process');
-          const exe = process.env.EREBUS_EXE;
-
-          function probe(label, stdio) {
-            return new Promise((resolve) => {
-              const child = spawn(exe, ['--mcp'], { stdio });
-              let out = '';
-              let err = '';
-              child.stdout.on('data', (d) => (out += String(d)));
-              child.stderr.on('data', (d) => (err += String(d)));
-              const done = (verdict) => {
-                try { child.kill(); } catch {}
-                resolve(\`  [\${label}] \${verdict} | stdout=\${JSON.stringify(out.slice(0, 120))} | stderr=\${JSON.stringify(err.trim().split('\n').slice(-2).join(' / ').slice(0, 120))}\`);
-              };
-              child.on('exit', (code) => setTimeout(() => done(\`child exited code=\${code}\`), 500));
-              setTimeout(() => done(out.includes('serverInfo') ? 'ANSWERED' : 'no answer, still running'), 12000);
-              child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {} } }) + '\n');
-            });
-          }
-
-          (async () => {
-            console.log(await probe('pipe', ['pipe', 'pipe', 'pipe']));
-            console.log(await probe('overlapped', ['overlapped', 'pipe', 'pipe']));
-          })();
-          "
+        run: node scripts/win-stdin-probe.mjs "$env:EREBUS_EXE"
