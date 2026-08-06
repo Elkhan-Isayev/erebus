@@ -14,6 +14,10 @@ interface Session {
 }
 
 const sessions = new Map<string, Session>();
+/** Cleanup runs after a session ends; one-shot callers wait for it so no group is left behind. */
+const cleanups = new Map<string, Promise<void>>();
+
+const awaitCleanup = (sessionId: string): Promise<void> => cleanups.get(sessionId) ?? Promise.resolve();
 
 /** Non-live scans give up when the cluster goes quiet for this long. */
 const IDLE_TIMEOUT_MS = 8_000;
@@ -240,10 +244,16 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
     } catch {
       /* ignore */
     }
-    try {
-      await admin.deleteGroups([groupId]);
-    } catch {
-      /* transient group cleanup is best-effort */
+    // The coordinator can still consider the group non-empty for a moment after the
+    // consumer disconnects, and deleting it then fails — leaving our scratch group behind
+    // in everyone's consumer list. A couple of retries clears that up.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        await admin.deleteGroups([groupId]);
+        return;
+      } catch {
+        await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+      }
     }
   };
 
@@ -251,8 +261,13 @@ export async function startConsume(query: ConsumeQuery, emit: Emit): Promise<voi
     if (finished) return;
     finished = true;
     flush();
+    // Register the cleanup before announcing completion: `emit` calls listeners
+    // synchronously, and a one-shot caller looks the promise up the moment it hears "done".
+    cleanups.set(
+      sessionId,
+      cleanup().finally(() => cleanups.delete(sessionId)),
+    );
     emit('consume:progress', progress(true, error));
-    void cleanup();
   }
 
   sessions.set(sessionId, {
@@ -396,8 +411,15 @@ export async function consumeBatch(
       }
       const progress = payload as ConsumeProgress;
       if (!progress.done) return;
-      if (progress.error) reject(new Error(progress.error));
-      else resolve({ messages: collected, scanned: progress.scanned, elapsedMs: progress.elapsedMs });
+      if (progress.error) {
+        reject(new Error(progress.error));
+        return;
+      }
+      // Wait for the scratch consumer group to be gone before handing the rows back:
+      // a caller that exits immediately would otherwise leave it on the cluster.
+      void awaitCleanup(sessionId).then(() =>
+        resolve({ messages: collected, scanned: progress.scanned, elapsedMs: progress.elapsedMs }),
+      );
     };
     startConsume({ ...query, sessionId, live: false }, emit).catch(reject);
   });

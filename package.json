@@ -33,8 +33,11 @@
     "mcp": "npm run build && electron . --mcp"
   },
   "dependencies": {
+    "@bokuweb/zstd-wasm": "^0.0.27",
     "avsc": "^5.7.7",
-    "kafkajs": "^2.2.4"
+    "kafkajs": "^2.2.4",
+    "kafkajs-snappy": "^1.1.0",
+    "lz4js": "^0.2.0"
   },
   "devDependencies": {
     "@types/node": "^22.5.0",

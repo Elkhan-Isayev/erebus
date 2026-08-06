@@ -1,6 +1,8 @@
 import { Kafka, logLevel, type Admin, type Consumer, type Producer, type SASLOptions } from 'kafkajs';
 import type { ClusterConfig } from '../../shared/types';
 import { getCluster } from '../store';
+// Registers Snappy, LZ4 and ZSTD before any client is built.
+import './codecs';
 
 interface Pooled {
   cluster: ClusterConfig;

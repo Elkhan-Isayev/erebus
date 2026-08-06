@@ -10,3 +10,6 @@ build/icon.icns
 .vscode/
 .idea/
 *.tsbuildinfo
+
+# Local announcement assets, not part of the app
+announcement/
