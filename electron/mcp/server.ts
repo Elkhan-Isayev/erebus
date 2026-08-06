@@ -5,6 +5,7 @@
  * reusing the stored cluster configuration (secrets included, unlocked by the OS keychain).
  * Nothing but protocol messages may touch stdout.
  */
+import fs from 'node:fs';
 import readline from 'node:readline';
 import { visibleTools, type McpTool } from './tools';
 
@@ -102,30 +103,79 @@ async function handleRequest(request: Request, version: { value: string }): Prom
   }
 }
 
+/**
+ * Feeds protocol lines to `onLine`, calling `onClose` when the client really goes away.
+ *
+ * On Windows an Electron GUI process gets a stdin handle that libuv cannot read as a
+ * stream: `readline` reports `close` before a single byte arrives, so the server used to
+ * quit the moment a client started it. Reading the descriptor through the thread pool
+ * works there, and keeps the event loop free for the Kafka calls the tools make.
+ */
+function readProtocolInput(onLine: (line: string) => void, onClose: () => void): void {
+  if (process.platform !== 'win32') {
+    const rl = readline.createInterface({ input: process.stdin, terminal: false });
+    rl.on('line', onLine);
+    rl.on('close', onClose);
+    return;
+  }
+
+  const buffer = Buffer.alloc(64 * 1024);
+  let pending = '';
+
+  const pump = (): void => {
+    fs.read(0, buffer, 0, buffer.length, null, (err, bytes) => {
+      if (err) {
+        // Nothing written yet: the pipe is simply idle, so try again shortly.
+        if ((err as NodeJS.ErrnoException).code === 'EAGAIN') {
+          setTimeout(pump, 20);
+          return;
+        }
+        onClose();
+        return;
+      }
+      if (bytes === 0) {
+        onClose();
+        return;
+      }
+
+      pending += buffer.subarray(0, bytes).toString('utf8');
+      let newline = pending.indexOf('\n');
+      while (newline >= 0) {
+        onLine(pending.slice(0, newline));
+        pending = pending.slice(newline + 1);
+        newline = pending.indexOf('\n');
+      }
+      pump();
+    });
+  };
+
+  pump();
+}
+
 export function startMcpServer(): void {
   const version = { value: PROTOCOL_VERSIONS[0] };
-  const rl = readline.createInterface({ input: process.stdin, terminal: false });
 
-  rl.on('line', (line) => {
-    const trimmed = line.trim();
-    if (!trimmed) return;
-    let request: Request;
-    try {
-      request = JSON.parse(trimmed);
-    } catch {
-      fail(null, -32700, 'Parse error');
-      return;
-    }
-    void handleRequest(request, version).catch((err) => {
-      log('handler crashed', err);
-      if (request.id !== undefined && request.id !== null) fail(request.id, -32603, (err as Error).message);
-    });
-  });
-
-  rl.on('close', () => {
-    log('stdin closed, exiting');
-    process.exit(0);
-  });
+  readProtocolInput(
+    (line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return;
+      let request: Request;
+      try {
+        request = JSON.parse(trimmed);
+      } catch {
+        fail(null, -32700, 'Parse error');
+        return;
+      }
+      void handleRequest(request, version).catch((err) => {
+        log('handler crashed', err);
+        if (request.id !== undefined && request.id !== null) fail(request.id, -32603, (err as Error).message);
+      });
+    },
+    () => {
+      log('stdin closed, exiting');
+      process.exit(0);
+    },
+  );
 
   log(`ready — ${visibleTools().length} tools${process.env.EREBUS_MCP_READONLY ? ' (read-only)' : ''}`);
 }
