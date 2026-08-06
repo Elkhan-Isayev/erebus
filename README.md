@@ -49,9 +49,20 @@ Everything else — checksums, zip and tar.gz — is on the [**releases page**](
 </div>
 
 > [!IMPORTANT]
-> The builds carry an **ad-hoc signature, not an Apple Developer one**, so macOS asks before the first launch:
-> right-click the app → **Open** → *Open*, or run `xattr -dr com.apple.quarantine /Applications/Erebus.app`.
-> Windows SmartScreen behaves the same way: **More info** → *Run anyway*. On Linux, `chmod +x` the AppImage.
+> **First launch on macOS.** The builds carry an ad-hoc signature rather than an Apple Developer one, so
+> macOS shows *"Apple could not verify Erebus.app is free of malware"* and refuses to open it. This is the
+> normal gate for software outside the App Store, and it is cleared once:
+>
+> 1. Press **Done** on the dialog.
+> 2. Open **System Settings → Privacy & Security**, scroll to the bottom.
+> 3. Next to *"Erebus.app was blocked…"* press **Open Anyway**, and confirm with Touch ID or your password.
+> 4. Launch Erebus again and press **Open**. It starts normally from then on.
+>
+> Right-click → *Open* no longer works: Apple removed that shortcut in macOS 15. The terminal equivalent is
+> `sudo xattr -dr com.apple.quarantine /Applications/Erebus.app` — `sudo` is needed because since macOS 14
+> editing another app's bundle requires the *App Management* privilege.
+>
+> **Windows** SmartScreen behaves the same way: **More info** → *Run anyway*. **Linux**: `chmod +x` the AppImage.
 > Every release is installed and launched on all three platforms in CI before it is published.
 
 <br>
