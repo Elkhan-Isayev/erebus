@@ -1,0 +1,57 @@
+name: Windows stdin probe
+
+# Temporary diagnostic: on Windows the packaged app starts but sees stdin close
+# immediately. This isolates whether that is the pipe type used by the parent
+# (Node's non-overlapped pipes) or the app itself.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Install the published Windows build
+        shell: pwsh
+        run: |
+          $url = 'https://github.com/Elkhan-Isayev/erebus/releases/download/v0.2.2/Erebus-win-x64-setup.exe'
+          Invoke-WebRequest -Uri $url -OutFile setup.exe
+          Start-Process -FilePath .\setup.exe -ArgumentList '/S' -Wait
+          $exe = "$env:LOCALAPPDATA\Programs\Erebus\Erebus.exe"
+          if (!(Test-Path $exe)) { throw 'not installed' }
+          echo "EREBUS_EXE=$exe" >> $env:GITHUB_ENV
+
+      - name: Probe stdio strategies
+        shell: pwsh
+        run: |
+          node -e "
+          const { spawn } = require('node:child_process');
+          const exe = process.env.EREBUS_EXE;
+
+          function probe(label, stdio) {
+            return new Promise((resolve) => {
+              const child = spawn(exe, ['--mcp'], { stdio });
+              let out = '';
+              let err = '';
+              child.stdout.on('data', (d) => (out += String(d)));
+              child.stderr.on('data', (d) => (err += String(d)));
+              const done = (verdict) => {
+                try { child.kill(); } catch {}
+                resolve(\`  [\${label}] \${verdict} | stdout=\${JSON.stringify(out.slice(0, 120))} | stderr=\${JSON.stringify(err.trim().split('\n').slice(-2).join(' / ').slice(0, 120))}\`);
+              };
+              child.on('exit', (code) => setTimeout(() => done(\`child exited code=\${code}\`), 500));
+              setTimeout(() => done(out.includes('serverInfo') ? 'ANSWERED' : 'no answer, still running'), 12000);
+              child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {} } }) + '\n');
+            });
+          }
+
+          (async () => {
+            console.log(await probe('pipe', ['pipe', 'pipe', 'pipe']));
+            console.log(await probe('overlapped', ['overlapped', 'pipe', 'pipe']));
+          })();
+          "
