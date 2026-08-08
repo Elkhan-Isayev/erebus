@@ -306,7 +306,10 @@ section.band { padding: clamp(90px, 13vh, 170px) var(--pad); position: relative;
      Hold the screenshots at a legible width and let them be panned instead;
      the clipped edge is the affordance. */
   .shot { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
-  .shot img { width: auto; max-width: none; min-width: 880px; }
+  /* An explicit width, not a min-width: with width:auto the image would fall
+     back to its natural 2880px and take seven screens to pan across. At 1200
+     the interface sits near its desktop scale, so the labels are legible. */
+  .shot img { width: 1200px; max-width: none; }
   /* Trim the dead space between sections — at this width it reads as a gap,
      not as breathing room. */
   section.band { padding: 68px var(--pad); }
