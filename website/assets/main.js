@@ -142,30 +142,26 @@ let filmDuration = 0;
 let filmTarget = 0;
 let filmCurrent = 0;
 let filmReady = false;
+let lastSeekAt = 0;
 
 function armFilm() {
   if (filmReady || !film || !(film.duration > 0)) return;
   filmDuration = film.duration;
   filmReady = true;
-  // A first seek proves scrubbing works and warms the decoder.
-  try {
-    film.currentTime = 0.001;
-  } catch {
-    /* ignore */
-  }
-  // Safari can stop at metadata — especially for a tab opened in the
-  // background — and then the first seeks have no data to land on and the hero
-  // looks frozen. A muted play immediately followed by pause forces the fetch
-  // and the decoder without ever showing motion.
-  try {
+}
+
+// Safari can stop at metadata — a tab opened in the background is the usual
+// case — and then there is nothing for the first seeks to land on. Nudge it,
+// but only if preload really did stall: an interrupted play() can wedge a seek,
+// and a healthy load must not be touched.
+if (film) {
+  setTimeout(() => {
+    if (film.readyState >= 2) return;
     const started = film.play();
     if (started && typeof started.then === 'function') {
       started.then(() => film.pause(), () => {});
     }
-    film.pause();
-  } catch {
-    /* autoplay refused — the scrub still works, it just buffers later */
-  }
+  }, 2500);
 }
 
 if (film) {
@@ -219,12 +215,20 @@ function frame() {
     if (filmReady && filmDuration) {
       filmTarget = p * (filmDuration - 0.06);
       filmCurrent = lerp(filmCurrent, filmTarget, 0.16);
-      // Queueing another seek while one is still running gets it dropped in
-      // WebKit, so wait for the current one. fastSeek is skipped deliberately:
-      // keyframes sit two frames apart, so a plain assignment is already exact
+      // Normally let a running seek finish — piling more on top gets them
+      // dropped in WebKit. But WebKit can also leave `seeking` true
+      // indefinitely, and then waiting politely freezes the hero for good, so
+      // re-issue if it has not settled quickly. fastSeek is skipped on purpose:
+      // keyframes sit two frames apart, so a plain assignment is already exact,
       // and it is the path both engines agree on.
-      if (!film.seeking && Math.abs(filmCurrent - film.currentTime) > 0.02) {
-        film.currentTime = filmCurrent;
+      const now = performance.now();
+      if (Math.abs(filmCurrent - film.currentTime) > 0.02 && (!film.seeking || now - lastSeekAt > 250)) {
+        lastSeekAt = now;
+        try {
+          film.currentTime = filmCurrent;
+        } catch {
+          /* not seekable yet — the next frame tries again */
+        }
       }
     }
 
