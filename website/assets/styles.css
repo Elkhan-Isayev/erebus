@@ -220,6 +220,17 @@ section.band { padding: clamp(90px, 13vh, 170px) var(--pad); position: relative;
 }
 .ambient.on { opacity: 0.55; }
 
+/* Live shader behind the throughput numbers — the one section where motion
+   carries meaning rather than mood. Masked like the ambient loops so it never
+   competes with the figures sitting on top of it. */
+.speed-glow {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  opacity: 0; transition: opacity 1.8s var(--ease);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 45%, #000 12%, rgba(0, 0, 0, 0.5) 45%, transparent 74%);
+  mask-image: radial-gradient(ellipse at 50% 45%, #000 12%, rgba(0, 0, 0, 0.5) 45%, transparent 74%);
+}
+.speed-glow.on { opacity: 0.42; }
+
 /* Statement. Pinned for the length of its own scroll so the whole paragraph is
    on screen while the lines light up one at a time — reading it in pieces as it
    passed by defeated the effect. */
