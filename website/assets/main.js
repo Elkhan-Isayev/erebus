@@ -143,17 +143,24 @@ let filmTarget = 0;
 let filmCurrent = 0;
 let filmReady = false;
 
+function armFilm() {
+  if (filmReady || !film || !(film.duration > 0)) return;
+  filmDuration = film.duration;
+  filmReady = true;
+  // A first seek proves scrubbing works and warms the decoder.
+  try {
+    film.currentTime = 0.001;
+  } catch {
+    /* ignore */
+  }
+}
+
 if (film) {
-  film.addEventListener('loadedmetadata', () => {
-    filmDuration = film.duration || 0;
-    filmReady = true;
-    // A first seek proves scrubbing works and warms the decoder.
-    try {
-      film.currentTime = 0.001;
-    } catch {
-      /* ignore */
-    }
-  });
+  film.addEventListener('loadedmetadata', armFilm);
+  film.addEventListener('durationchange', armFilm);
+  // Served from cache the metadata can already be there by the time this runs,
+  // and then loadedmetadata never fires — the hero would sit on its poster.
+  armFilm();
   // If the file never arrives, the poster stays and nothing below breaks.
   film.addEventListener('error', () => (filmReady = false));
 }
@@ -195,6 +202,7 @@ function frame() {
     const span = hero.offsetHeight - innerHeight;
     const p = clamp((y - hero.offsetTop) / Math.max(span, 1));
 
+    if (!filmReady) armFilm(); // last resort: whatever order the events arrived in
     if (filmReady && filmDuration) {
       filmTarget = p * (filmDuration - 0.06);
       filmCurrent = lerp(filmCurrent, filmTarget, 0.16);
