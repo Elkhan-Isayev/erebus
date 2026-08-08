@@ -153,6 +153,19 @@ function armFilm() {
   } catch {
     /* ignore */
   }
+  // Safari can stop at metadata — especially for a tab opened in the
+  // background — and then the first seeks have no data to land on and the hero
+  // looks frozen. A muted play immediately followed by pause forces the fetch
+  // and the decoder without ever showing motion.
+  try {
+    const started = film.play();
+    if (started && typeof started.then === 'function') {
+      started.then(() => film.pause(), () => {});
+    }
+    film.pause();
+  } catch {
+    /* autoplay refused — the scrub still works, it just buffers later */
+  }
 }
 
 if (film) {
@@ -206,9 +219,12 @@ function frame() {
     if (filmReady && filmDuration) {
       filmTarget = p * (filmDuration - 0.06);
       filmCurrent = lerp(filmCurrent, filmTarget, 0.16);
-      if (Math.abs(filmCurrent - film.currentTime) > 0.012) {
-        if (film.fastSeek) film.fastSeek(filmCurrent);
-        else film.currentTime = filmCurrent;
+      // Queueing another seek while one is still running gets it dropped in
+      // WebKit, so wait for the current one. fastSeek is skipped deliberately:
+      // keyframes sit two frames apart, so a plain assignment is already exact
+      // and it is the path both engines agree on.
+      if (!film.seeking && Math.abs(filmCurrent - film.currentTime) > 0.02) {
+        film.currentTime = filmCurrent;
       }
     }
 
