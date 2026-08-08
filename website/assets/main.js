@@ -194,7 +194,7 @@ const progressBar = document.getElementById('progress');
 const nav = document.getElementById('nav');
 const docHeight = () => document.documentElement.scrollHeight - innerHeight;
 
-function frame() {
+function tick() {
   const y = scrollY;
 
   /* progress + nav */
@@ -268,9 +268,39 @@ function frame() {
     }
   }
 
-  requestAnimationFrame(frame);
 }
-requestAnimationFrame(frame);
+
+/* A page that loads in a background tab never gets a single animation frame in
+   Safari, and the pending callback does not always survive to when the tab is
+   opened — the whole scroll choreography then stays frozen until a reload,
+   which is how the hero could sit on its first frame while the rest of the page
+   worked. So the chain is restartable: anything that implies the page is being
+   looked at checks whether frames are actually arriving, and starts a fresh
+   chain if they are not. The generation counter keeps exactly one alive. */
+let loopGen = 0;
+let lastFrameAt = 0;
+
+function startLoop() {
+  const mine = ++loopGen;
+  const step = (now) => {
+    if (mine !== loopGen) return; // superseded by a restart
+    lastFrameAt = now;
+    tick();
+    requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+function ensureLoop() {
+  if (document.hidden) return; // nothing to draw for, and rAF would not run
+  if (performance.now() - lastFrameAt > 300) startLoop();
+}
+
+startLoop();
+addEventListener('scroll', ensureLoop, { passive: true });
+addEventListener('visibilitychange', ensureLoop);
+addEventListener('pageshow', ensureLoop);
+addEventListener('resize', ensureLoop);
 
 /* Preload the tour screenshots so a step never lands on a blank frame. */
 addEventListener('load', () => {
