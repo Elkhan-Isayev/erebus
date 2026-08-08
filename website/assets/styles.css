@@ -299,7 +299,18 @@ section.band { padding: clamp(90px, 13vh, 170px) var(--pad); position: relative;
 .split { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(28px, 5vw, 80px); align-items: center; }
 @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
 .shot { border-radius: 14px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 40px 90px rgba(0,0,0,.6); }
-.shot img { width: 100%; }
+.shot img { width: 100%; display: block; }
+
+@media (max-width: 760px) {
+  /* A 1440px application window squeezed into a phone is an unreadable smear.
+     Hold the screenshots at a legible width and let them be panned instead;
+     the clipped edge is the affordance. */
+  .shot { overflow-x: auto; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+  .shot img { width: auto; max-width: none; min-width: 880px; }
+  /* Trim the dead space between sections — at this width it reads as a gap,
+     not as breathing room. */
+  section.band { padding: 68px var(--pad); }
+}
 
 /* mcp diagram */
 /* Three nodes and the two connectors between them — five tracks, not three,
