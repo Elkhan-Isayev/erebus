@@ -15,6 +15,7 @@ terminal tabs. Then hand the whole thing to Claude Code over MCP.
 [![Release](https://img.shields.io/github/v/release/Elkhan-Isayev/erebus?style=for-the-badge&color=7c5cff&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases/latest)
 [![License](https://img.shields.io/badge/license-Apache_2.0-2f9e6e?style=for-the-badge&labelColor=1a1d2b)](LICENSE)
 [![Downloads](https://img.shields.io/github/downloads/Elkhan-Isayev/erebus/total?style=for-the-badge&color=0ea5e9&labelColor=1a1d2b)](https://github.com/Elkhan-Isayev/erebus/releases)
+[![Website](https://img.shields.io/badge/erebus-website-7c5cff?style=for-the-badge&labelColor=1a1d2b)](https://elkhan-isayev.github.io/erebus/)
 
 [**Download**](#-download) · [**Features**](#-features) · [**MCP for Claude Code**](#-mcp--claude-code-drives-erebus) · [**Terminal**](#-terminal) · [**Stress test**](#-stress-test) · [**Development**](#-development)
 

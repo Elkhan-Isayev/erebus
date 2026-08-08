@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Erebus — a desktop app for Kafka and RabbitMQ</title>
+<meta name="description" content="Erebus is a desktop client for Apache Kafka and RabbitMQ. Browse topics, produce and consume, live tail at 1,000 msg/s, decode Avro, keep your kubectl port-forwards in a built-in terminal — and hand it all to Claude Code over MCP.">
+<link rel="icon" href="media/icon.png">
+<meta property="og:title" content="Erebus — a desktop app for Kafka and RabbitMQ">
+<meta property="og:description" content="Install it, open it, done. No UI to host, no access to request.">
+<meta property="og:image" content="https://elkhan-isayev.github.io/erebus/og.png">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+
+<div id="boot">
+  <svg viewBox="0 0 100 100">
+    <circle class="ring" cx="50" cy="50" r="42"/>
+    <circle class="ring" cx="50" cy="50" r="30" style="animation-delay:.1s"/>
+    <path class="tri" d="M50 12 84 72H16Z"/>
+    <circle class="core" cx="50" cy="50" r="4"/>
+  </svg>
+</div>
+
+<div class="aura" id="aura"></div>
+<div class="progress" id="progress"></div>
+
+<nav id="nav">
+  <img src="media/icon.png" alt="">
+  <span class="word">Erebus</span>
+  <div class="links">
+    <a href="#tour">Tour</a>
+    <a href="#speed">Performance</a>
+    <a href="#mcp">MCP</a>
+    <a href="https://github.com/Elkhan-Isayev/erebus">GitHub</a>
+    <a class="btn" href="#download">Download</a>
+  </div>
+</nav>
+
+<!-- ============================================================ hero ==== -->
+<header class="hero" id="hero">
+  <div class="hero-stage">
+    <video id="film" src="media/hero.mp4" poster="media/hero-poster.jpg" muted playsinline preload="auto" aria-hidden="true"></video>
+    <div class="veil"></div>
+
+    <div class="hero-copy" id="heroCopy">
+      <h1 id="title">Erebus</h1>
+      <p class="sub">A desktop app for Apache&nbsp;Kafka and RabbitMQ.<br>Install it, open it, done.</p>
+      <div class="cta">
+        <a class="btn" href="#download">Download for free</a>
+        <a class="btn ghost" href="https://github.com/Elkhan-Isayev/erebus">View source</a>
+      </div>
+    </div>
+
+    <div class="hero-notes" aria-hidden="true">
+      <div class="hero-note" data-at="0.34">Your brokers, on your machine<small>No server to host. No access to request.</small></div>
+      <div class="hero-note" data-at="0.58">Every message, decoded<small>JSON · Avro · Protobuf frames · snappy, lz4, zstd</small></div>
+      <div class="hero-note" data-at="0.82">And an agent that speaks it too<small>51 MCP tools for Claude Code</small></div>
+    </div>
+
+    <div class="scroll-hint" id="hint"><span>Scroll</span><i></i></div>
+  </div>
+</header>
+
+<!-- ======================================================= statement ==== -->
+<section class="statement" id="statement">
+  <div class="statement-rail">
+  <video class="ambient" data-src="media/amb-statement.mp4" muted loop playsinline preload="none" aria-hidden="true"></video>
+  <div class="wrap">
+    <p data-lit>
+      <span class="fade">For years the answer to “let me look at that topic” was a browser tab someone had to host,</span>
+      <span class="fade">a login, a ticket.</span>
+      <span class="fade">Erebus is the other answer:</span>
+      <span class="fade">a native window that talks straight to your brokers,</span>
+      <span class="fade">with your credentials, from your laptop.</span>
+    </p>
+
+    <div class="marquee" aria-hidden="true">
+      <div>
+        <span>orders.v1</span><span><b>payments-dlt</b></span><span>go-gov-events</span><span>booking-no-show-sweep</span>
+        <span><b>scheduled-tasks</b></span><span>email</span><span>admin-jobs-dlq</span><span>go-notifications-retry</span>
+        <span>inventory.snapshot</span><span><b>audit.stream</b></span><span>user.signup.v2</span><span>webhooks-outbound</span>
+        <span>orders.v1</span><span><b>payments-dlt</b></span><span>go-gov-events</span><span>booking-no-show-sweep</span>
+        <span><b>scheduled-tasks</b></span><span>email</span><span>admin-jobs-dlq</span><span>go-notifications-retry</span>
+        <span>inventory.snapshot</span><span><b>audit.stream</b></span><span>user.signup.v2</span><span>webhooks-outbound</span>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ============================================================ tour ==== -->
+<section class="tour" id="tour">
+  <div class="tour-rail">
+    <div class="tour-copy">
+      <article class="tour-step on" data-step="0">
+        <div class="n">01 — CONNECT</div>
+        <h3>Every cluster in one window</h3>
+        <p>Kafka and RabbitMQ side by side, each with its own colour, credentials and integrations. Secrets go into the OS keychain, never a config file in plain sight.</p>
+        <ul><li>SASL · TLS</li><li>Schema Registry</li><li>Kafka Connect</li><li>ksqlDB</li><li>read-only mode</li></ul>
+      </article>
+      <article class="tour-step" data-step="1">
+        <div class="n">02 — READ</div>
+        <h3>Find the one message that matters</h3>
+        <p>Seek by newest, oldest, offset or timestamp. Narrow it with a substring — or a JavaScript predicate evaluated per message in a sandbox. Headers are rendered as JSON, right in the list.</p>
+        <ul><li>value.status === 'FAILED'</li><li>live tail</li><li>gzip · snappy · lz4 · zstd</li></ul>
+      </article>
+      <article class="tour-step" data-step="2">
+        <div class="n">03 — WRITE</div>
+        <h3>Key, body and headers</h3>
+        <p>Compose a message with its key, its body and its headers — pasted as a JSON object if that is how your producers send them. Or take any message you are looking at and send a copy.</p>
+        <ul><li>Avro via registry</li><li>local .avsc</li><li>compression</li><li>target partition</li></ul>
+      </article>
+      <article class="tour-step" data-step="3">
+        <div class="n">04 — OPERATE</div>
+        <h3>Lag, groups, offsets</h3>
+        <p>Which group is behind, on which partition, and by how much. Reset to earliest, latest, an offset or a timestamp — and see the members that own each partition before you do.</p>
+        <ul><li>per-partition lag</li><li>offset reset</li><li>DLQ triage</li></ul>
+      </article>
+      <article class="tour-step" data-step="4">
+        <div class="n">05 — REACH</div>
+        <h3>The tunnel comes with the app</h3>
+        <p>A terminal panel with tabs, running your <span class="mono">kubectl port-forward</span> through the login shell. Save it as a profile and it starts with Erebus — preprod is reachable before the first screen is painted.</p>
+        <ul><li>auto-start profiles</li><li>real process groups</li><li>ANSI colours</li></ul>
+      </article>
+    </div>
+
+    <div class="frame">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <img class="on" src="media/clusters-dark.png" alt="Cluster list in Erebus" data-shot="0">
+      <img src="media/kafka-messages-dark.png" alt="Message browser with headers" data-shot="1">
+      <img src="media/kafka-produce-dark.png" alt="Produce dialog" data-shot="2">
+      <img src="media/kafka-groups-dark.png" alt="Consumer groups with lag" data-shot="3">
+      <img src="media/terminal-dark.png" alt="Built-in terminal running port-forwards" data-shot="4">
+    </div>
+  </div>
+</section>
+
+<!-- =========================================================== speed ==== -->
+<section class="band" id="speed">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>Measured, not hoped about</div>
+    <h2 class="display" data-reveal data-delay="1" style="margin-top:22px;max-width:16ch">Sixty thousand messages,<br><em class="hl">one minute</em>, nothing missed.</h2>
+    <p class="lead" data-reveal data-delay="2" style="margin-top:24px">A paced producer pushed 60&nbsp;000 records into a six-partition topic while the app tailed it live, window open. The numbers below are from that run — and it paid for itself twice by exposing two real defects, both fixed.</p>
+
+    <div class="metrics" data-reveal data-delay="3" style="margin-top:52px">
+      <div class="metric"><div class="v" data-count="60000">0</div><div class="k">messages produced in 59.5 s</div></div>
+      <div class="metric"><div class="v" data-count="1015">0<span>msg/s</span></div><div class="k">sustained by the live tail</div></div>
+      <div class="metric"><div class="v" data-count="18500">0<span>msg/s</span></div><div class="k">bulk scan, decoded</div></div>
+      <div class="metric"><div class="v" data-count="10">0<span>MB</span></div><div class="k">renderer heap, steady</div></div>
+    </div>
+
+    <div class="shot" data-reveal data-delay="2" style="margin-top:56px">
+      <img src="media/stress-live-tail-dark.png" alt="Live tail keeping up with 1,190 messages per second" loading="lazy">
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================= mcp ==== -->
+<section class="band" id="mcp">
+  <video class="ambient" data-src="media/amb-mcp.mp4" muted loop playsinline preload="none" aria-hidden="true"></video>
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>Model Context Protocol</div>
+    <h2 class="display" data-reveal data-delay="1" style="margin-top:22px;max-width:14ch">Hand the whole thing to an agent.</h2>
+    <p class="lead" data-reveal data-delay="2" style="margin-top:24px"><span class="mono">Erebus --mcp</span> serves 51 tools over stdio. It calls the same handlers the interface does, so Claude Code can do exactly what you can do — and nothing you cannot. A read-only cluster stays read-only for the agent too.</p>
+
+    <div class="wire-row" data-reveal data-delay="2">
+      <div class="node"><div class="t">Kafka · RabbitMQ</div><div class="s">your brokers</div></div>
+      <div class="flow"></div>
+      <div class="node" style="border-color:rgba(124,92,255,.45)"><div class="t">Erebus</div><div class="s">desktop app</div></div>
+      <div class="flow"></div>
+      <div class="node ai"><div class="t">Claude Code</div><div class="s">51 tools over MCP</div></div>
+    </div>
+
+    <div class="prompts">
+      <div class="prompt" data-reveal>“Port-forward staging Kafka, then show me the last 20 messages on orders.v1 where status is FAILED.”</div>
+      <div class="prompt" data-reveal data-delay="1">“Which consumer group is lagging, on which partitions, and since when?”</div>
+      <div class="prompt" data-reveal data-delay="2">“Publish this payload to the orders exchange and tell me whether it routed.”</div>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================== avro ====== -->
+<section class="band">
+  <div class="wrap split">
+    <div>
+      <div class="eyebrow" data-reveal>Serialisation</div>
+      <h2 class="display" data-reveal data-delay="1" style="margin-top:20px;max-width:12ch">Binary that reads like JSON.</h2>
+      <p class="lead" data-reveal data-delay="2" style="margin-top:22px">Avro through the Schema Registry, with the Confluent wire format handled. No registry, or one you cannot reach from your laptop? Paste the <span class="mono">.avsc</span> and it becomes a deserializer everywhere — reading and writing both.</p>
+      <p class="lead" data-reveal data-delay="3" style="margin-top:16px">Snappy, LZ4 and zstd topics open like any other. kafkajs ships gzip alone; the rest are here in pure JavaScript and WebAssembly, so the app still carries no native module.</p>
+    </div>
+    <div class="shot" data-reveal data-delay="2"><img src="media/avro-plugin-dark.png" alt="Avro payloads decoded from a local schema" loading="lazy"></div>
+  </div>
+</section>
+
+<!-- ======================================================== rabbit ====== -->
+<section class="band">
+  <div class="wrap split">
+    <div class="shot" data-reveal><img src="media/rabbitmq-overview-dark.png" alt="RabbitMQ overview with port-forwards running" loading="lazy"></div>
+    <div>
+      <div class="eyebrow" data-reveal>Not only Kafka</div>
+      <h2 class="display" data-reveal data-delay="1" style="margin-top:20px;max-width:12ch">RabbitMQ, same window.</h2>
+      <p class="lead" data-reveal data-delay="2" style="margin-top:22px">Queues with ready and unacked counts, exchanges and their bindings, connections, channels and consumers. Peek at messages and put them back, or consume them for real. Publish and find out immediately whether anything was routed.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================================================== grid ====== -->
+<section class="band">
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>The rest of it</div>
+    <h2 class="display" data-reveal data-delay="1" style="margin-top:20px">Everything else you open a UI for.</h2>
+
+    <div class="grid">
+      <div class="card" data-reveal><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3 21 8l-9 5-9-5 9-5Z"/><path d="m3 13 9 5 9-5"/></svg><h4>Topics</h4><p>Partitions, replication, out-of-sync replicas, retention. Create, edit config, add partitions, purge, delete.</p></div>
+      <div class="card" data-reveal data-delay="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path d="M14 3v5h5"/></svg><h4>Schema Registry</h4><p>Subjects, versions, compatibility levels. Register AVRO, JSON or PROTOBUF and check before you do.</p></div>
+      <div class="card" data-reveal data-delay="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 2v6M15 2v6"/><path d="M6 8h12v3a6 6 0 0 1-12 0V8Z"/><path d="M12 17v5"/></svg><h4>Kafka Connect</h4><p>Several workers per cluster. State, tasks, failure traces. Pause, resume, restart, edit config.</p></div>
+      <div class="card" data-reveal data-delay="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M13 15h4"/></svg><h4>ksqlDB</h4><p>Run any statement with ⌘↵ — SHOW, DESCRIBE, CREATE, SELECT — and read the rows as a table.</p></div>
+      <div class="card" data-reveal><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6l7-3Z"/></svg><h4>ACL</h4><p>Every rule with principal, permission, operation and pattern type. Create and delete them.</p></div>
+      <div class="card" data-reveal data-delay="1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg><h4>Command palette</h4><p>⌘K to any topic, page or cluster. The fastest path from thought to screen.</p></div>
+      <div class="card" data-reveal data-delay="2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg><h4>Light and dark</h4><p>Follows the system, or pin it with ⌘⇧L. Every screen and every table, both ways.</p></div>
+      <div class="card" data-reveal data-delay="3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg><h4>Local by construction</h4><p>No telemetry, no backend, no account. Secrets in the OS keychain, config in one file you can export.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== download ====== -->
+<section class="band" id="download">
+  <video class="ambient" data-src="media/amb-download.mp4" muted loop playsinline preload="none" aria-hidden="true"></video>
+  <div class="wrap">
+    <div class="eyebrow" data-reveal>Free and open source</div>
+    <h2 class="display" data-reveal data-delay="1" style="margin-top:20px">Take it.</h2>
+    <p class="lead" data-reveal data-delay="2" style="margin-top:22px">Every release is installed and launched on macOS, Windows and Linux in CI before it is published — a build that cannot start never ships.</p>
+
+    <div class="dl">
+      <a data-reveal href="https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-mac-arm64.dmg">
+        <div class="os">macOS</div>
+        <div class="files">
+          <span><b>Apple Silicon</b> · Erebus-mac-arm64.dmg</span>
+          <span>Intel → <b>Erebus-mac-x64.dmg</b></span>
+        </div>
+      </a>
+      <a data-reveal data-delay="1" href="https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-win-x64-setup.exe">
+        <div class="os">Windows</div>
+        <div class="files">
+          <span><b>Installer</b> · Erebus-win-x64-setup.exe</span>
+          <span>Portable and ARM64 on the releases page</span>
+        </div>
+      </a>
+      <a data-reveal data-delay="2" href="https://github.com/Elkhan-Isayev/erebus/releases/latest/download/Erebus-linux-x86_64.AppImage">
+        <div class="os">Linux</div>
+        <div class="files">
+          <span><b>AppImage</b> · x86_64</span>
+          <span>deb · rpm · tar.gz · arm64 on the releases page</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="note" data-reveal data-delay="2">
+      <b>First launch on macOS.</b> The builds are signed ad-hoc rather than with a paid Apple identity, so macOS asks once:
+      <ol>
+        <li>Press <b>Done</b> on the dialog</li>
+        <li>Open <b>System Settings → Privacy &amp; Security</b> and scroll to the bottom</li>
+        <li>Press <b>Open Anyway</b>, confirm with Touch ID</li>
+        <li>Launch Erebus again and press <b>Open</b></li>
+      </ol>
+      Windows SmartScreen: <b>More info → Run anyway</b>. Linux: <span class="mono">chmod +x</span> the AppImage.
+    </div>
+  </div>
+</section>
+
+<footer>
+  <img src="media/icon.png" alt="" style="width:26px;height:26px;border-radius:7px">
+  <span>Erebus · Apache 2.0</span>
+  <div class="sp">
+    <a href="https://github.com/Elkhan-Isayev/erebus">GitHub</a>
+    <a href="https://github.com/Elkhan-Isayev/erebus/releases">Releases</a>
+    <a href="https://github.com/Elkhan-Isayev/erebus/issues">Issues</a>
+  </div>
+</footer>
+
+<script src="assets/main.js"></script>
+</body>
+</html>

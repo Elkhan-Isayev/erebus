@@ -1,0 +1,51 @@
+name: Pages
+
+# The landing page lives in website/. Branch-source Pages can only publish the
+# repository root or /docs, so it is uploaded as an artifact instead.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the page is intact
+        run: |
+          set -euo pipefail
+          test -f website/index.html
+          # Every local asset the page references must exist, or the site ships broken.
+          missing=0
+          for ref in $(grep -oE '(src|data-src|href|poster)="[^"#:]+"' website/index.html \
+                       | cut -d'"' -f2 | grep -v '^http'); do
+            if [ ! -f "website/$ref" ]; then
+              echo "missing: website/$ref"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: website
+      - id: deploy
+        uses: actions/deploy-pages@v5
