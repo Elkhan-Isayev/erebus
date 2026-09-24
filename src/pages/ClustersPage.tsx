@@ -3,7 +3,7 @@ import type { ClusterConfig } from '@shared/types';
 import { Icon } from '@/components/Icons';
 import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ui';
 import { api } from '@/lib/api';
-import { describeMisroute } from '@/components/BrokerRouteBanner';
+import { describeMisroute } from '@/lib/brokerRoutes';
 import { useToast } from '@/lib/toast';
 import { navigate } from '@/lib/router';
 import { useAppState } from '@/app/AppState';

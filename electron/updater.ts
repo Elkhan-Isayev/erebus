@@ -21,6 +21,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import type { UpdateState } from '../shared/types';
+import { assetName, compareVersions } from './releases';
 import { getSettings } from './store';
 
 const REPO = 'Elkhan-Isayev/erebus';
@@ -61,24 +62,6 @@ function setState(patch: Partial<UpdateState>): UpdateState {
 
 export const getUpdateState = (): UpdateState => state;
 
-/** 0.2.10 > 0.2.9; a pre-release tag sorts before its release. */
-export function compareVersions(a: string, b: string): number {
-  const parse = (v: string) => {
-    const [core, pre = ''] = v.replace(/^v/, '').split('-', 2);
-    return { parts: core.split('.').map((n) => Number.parseInt(n, 10) || 0), pre };
-  };
-  const x = parse(a);
-  const y = parse(b);
-  for (let i = 0; i < Math.max(x.parts.length, y.parts.length); i++) {
-    const diff = (x.parts[i] ?? 0) - (y.parts[i] ?? 0);
-    if (diff !== 0) return Math.sign(diff);
-  }
-  if (x.pre === y.pre) return 0;
-  if (!x.pre) return 1;
-  if (!y.pre) return -1;
-  return x.pre < y.pre ? -1 : 1;
-}
-
 /* --------------------------------------------------------- install target */
 
 type Target =
@@ -113,14 +96,14 @@ function installTarget(): Target {
     if (!writable(path.dirname(bundle))) {
       return { kind: 'manual', reason: `${path.dirname(bundle)} is not writable for your user.` };
     }
-    return { kind: 'mac', asset: `Erebus-mac-${arch}.zip`, bundle };
+    return { kind: 'mac', asset: assetName('mac', arch), bundle };
   }
 
   if (process.platform === 'win32') {
     if (process.env.PORTABLE_EXECUTABLE_FILE) {
       return { kind: 'manual', reason: 'The portable build cannot replace itself; download the new one.' };
     }
-    return { kind: 'nsis', asset: `Erebus-win-${arch}-setup.exe` };
+    return { kind: 'nsis', asset: assetName('nsis', arch) };
   }
 
   const appImage = process.env.APPIMAGE;
@@ -128,7 +111,7 @@ function installTarget(): Target {
     if (!writable(path.dirname(appImage))) {
       return { kind: 'manual', reason: `${path.dirname(appImage)} is not writable for your user.` };
     }
-    return { kind: 'appimage', asset: `Erebus-linux-${arch === 'x64' ? 'x86_64' : arch}.AppImage`, file: appImage };
+    return { kind: 'appimage', asset: assetName('appimage', arch), file: appImage };
   }
   return { kind: 'manual', reason: 'Installed from a package — update it with the new .deb or .rpm.' };
 }

@@ -9,7 +9,7 @@ import {
   type DescribeConfigResponse,
   type ITopicConfig,
 } from 'kafkajs';
-import type { Address } from './pool';
+import type { Address } from './routing';
 import type {
   AclEntry,
   BrokerInfo,
@@ -27,7 +27,8 @@ import type {
   TopicDetail,
   TopicSummary,
 } from '../../shared/types';
-import { adminFor, assertWritable, bootstrapList, buildKafka, clusterFor, routeAddress, splitAddress } from './pool';
+import { adminFor, assertWritable, buildKafka, clusterFor } from './pool';
+import { bootstrapList, routeAddress, splitAddress } from './routing';
 
 const INTERNAL_PREFIXES = ['__', '_confluent', '_schemas'];
 

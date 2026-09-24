@@ -3,7 +3,7 @@ import type { BrokerKind, BrokerRoute, ClusterConfig, KafkaConnectConfig, SaslMe
 import { Button, Checkbox, Field, Input, Modal, Segmented, Select, Tabs, Textarea } from '@/components/ui';
 import { Icon } from '@/components/Icons';
 import { api } from '@/lib/api';
-import { describeMisroute } from '@/components/BrokerRouteBanner';
+import { describeMisroute } from '@/lib/brokerRoutes';
 import { useToast } from '@/lib/toast';
 
 const COLORS = ['#7c5cff', '#2f9e6e', '#d97706', '#dc2626', '#0ea5e9', '#db2777', '#65a30d', '#6b7280'];
