@@ -6,6 +6,7 @@ import { getSettings } from './store';
 import { disconnectAll } from './kafka/pool';
 import * as terminal from './terminal/manager';
 import { stopAllConsumers } from './kafka/messages';
+import { checkForUpdates, startUpdateChecks } from './updater';
 
 const DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 const isDev = Boolean(DEV_SERVER_URL);
@@ -63,9 +64,35 @@ function createWindow(): BrowserWindow {
 function buildMenu(): void {
   const isMac = process.platform === 'darwin';
   const send = (channel: string) => () => BrowserWindow.getFocusedWindow()?.webContents.send(`erebus:${channel}`);
+  const checkUpdates: Electron.MenuItemConstructorOptions = {
+    label: 'Check for Updates…',
+    click: () => {
+      const [win] = BrowserWindow.getAllWindows();
+      win?.webContents.send('erebus:menu:check-updates');
+      void checkForUpdates();
+    },
+  };
 
   const template: Electron.MenuItemConstructorOptions[] = [
-    ...(isMac ? ([{ role: 'appMenu' }] as Electron.MenuItemConstructorOptions[]) : []),
+    ...(isMac
+      ? ([
+          {
+            role: 'appMenu',
+            submenu: [
+              { role: 'about' },
+              checkUpdates,
+              { type: 'separator' },
+              { role: 'services' },
+              { type: 'separator' },
+              { role: 'hide' },
+              { role: 'hideOthers' },
+              { role: 'unhide' },
+              { type: 'separator' },
+              { role: 'quit' },
+            ],
+          },
+        ] as Electron.MenuItemConstructorOptions[])
+      : []),
     {
       label: 'File',
       submenu: [
@@ -105,6 +132,7 @@ function buildMenu(): void {
           label: 'Report an Issue',
           click: () => shell.openExternal('https://github.com/Elkhan-Isayev/erebus/issues/new'),
         },
+        ...(isMac ? [] : ([{ type: 'separator' }, checkUpdates] as Electron.MenuItemConstructorOptions[])),
       ],
     },
   ];
@@ -126,6 +154,7 @@ app.whenReady().then(() => {
   buildMenu();
   createWindow();
   startAutoTerminals();
+  startUpdateChecks();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
@@ -157,14 +186,23 @@ app.on('window-all-closed', () => {
   if (!MCP_MODE && process.platform !== 'darwin') app.quit();
 });
 
-app.on('before-quit', async (event) => {
+/** Longest we let a polite Kafka goodbye hold up Cmd+Q. */
+const QUIT_GRACE_MS = 1_500;
+
+app.on('before-quit', (event) => {
   if (shuttingDown) return;
   shuttingDown = true;
   event.preventDefault();
   stopAllConsumers();
-  terminal.killAll();
-  await disconnectAll();
-  app.quit();
+  // kafkajs' disconnect waits for every in-flight request, and a request to a broker whose
+  // port-forward is gone only returns after requestTimeout (30s by default). So the goodbye
+  // is bounded, the port-forwards stay up until it is said, and app.exit() — unlike
+  // app.quit() — cannot be vetoed by anything still holding on.
+  const grace = new Promise((resolve) => setTimeout(resolve, QUIT_GRACE_MS));
+  void Promise.race([disconnectAll(), grace]).finally(() => {
+    terminal.killAll();
+    app.exit(0);
+  });
 });
 
 if (isDev) {
