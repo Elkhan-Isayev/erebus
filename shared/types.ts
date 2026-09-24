@@ -111,6 +111,8 @@ export interface AppSettings {
   defaultClusterId?: string | null;
   /** Look for a new release on GitHub at startup and every few hours. */
   checkForUpdates: boolean;
+  /** macOS: offer to move the app into Applications when it runs from elsewhere. */
+  askToMoveToApplications?: boolean;
 }
 
 export type UpdateStatus = 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'installing' | 'error';

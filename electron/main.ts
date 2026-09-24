@@ -1,8 +1,8 @@
-import { app, BrowserWindow, Menu, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import { registerIpc } from './ipc';
 import { startMcpServer } from './mcp/server';
-import { getSettings } from './store';
+import { getSettings, updateSettings } from './store';
 import { disconnectAll } from './kafka/pool';
 import * as terminal from './terminal/manager';
 import { stopAllConsumers } from './kafka/messages';
@@ -141,13 +141,46 @@ function buildMenu(): void {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-app.whenReady().then(() => {
+/**
+ * A Mac app run straight from the disk image or Downloads never lands in Applications, and
+ * the updater cannot replace a bundle on a read-only image. Offer the move, the way most
+ * Mac apps do; Electron moves the bundle, handles App Translocation and relaunches.
+ * Resolves true when the app is about to relaunch from its new home.
+ */
+async function offerMoveToApplications(): Promise<boolean> {
+  if (process.platform !== 'darwin' || !app.isPackaged || app.isInApplicationsFolder()) return false;
+  if (getSettings().askToMoveToApplications === false) return false;
+
+  const { response, checkboxChecked } = await dialog.showMessageBox({
+    type: 'question',
+    buttons: ['Move to Applications', 'Not Now'],
+    defaultId: 0,
+    cancelId: 1,
+    message: 'Move Erebus to the Applications folder?',
+    detail: 'Erebus is running from outside Applications. Moving it there keeps it in Launchpad and lets it update itself.',
+    checkboxLabel: "Don't ask again",
+  });
+  if (response !== 0) {
+    if (checkboxChecked) updateSettings({ askToMoveToApplications: false });
+    return false;
+  }
+  try {
+    return app.moveToApplicationsFolder();
+  } catch (err) {
+    dialog.showErrorBox('Could not move Erebus', (err as Error).message);
+    return false;
+  }
+}
+
+app.whenReady().then(async () => {
   if (MCP_MODE) {
     process.env.EREBUS_VERSION = app.getVersion();
     app.dock?.hide();
     startMcpServer();
     return;
   }
+
+  if (await offerMoveToApplications()) return;
 
   const settings = getSettings();
   nativeTheme.themeSource = settings.theme;
