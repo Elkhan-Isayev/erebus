@@ -69,7 +69,33 @@ export interface ClusterConfig {
   ksqldb?: KsqlDbConfig | null;
   requestTimeoutMs: number;
   connectionTimeoutMs: number;
+  /**
+   * Kafka only. Where to really connect when a broker advertises an address this machine
+   * cannot use — the usual case behind `kubectl port-forward`. One `advertised => actual`
+   * pair of host:port per line.
+   */
+  brokerOverrides?: string;
+  /** Kafka only. Send every broker connection to the first bootstrap address (single-broker port-forwards). */
+  routeViaBootstrap?: boolean;
   createdAt: number;
+}
+
+/** What one broker's advertised address actually leads to, as seen from this machine. */
+export interface BrokerRoute {
+  nodeId: number;
+  advertised: string;
+  /** The address Erebus dials after overrides. */
+  connectsTo: string;
+  /** Cluster id reported by whatever answered there; null when nothing did. */
+  reachedClusterId: string | null;
+  ok: boolean;
+  error?: string;
+}
+
+export interface BrokerRouteCheck {
+  clusterId: string;
+  bootstrap: string;
+  routes: BrokerRoute[];
 }
 
 export interface AppSettings {
@@ -83,6 +109,25 @@ export interface AppSettings {
   avroSchemas: AvroSchemaEntry[];
   /** Cluster to open when the app starts; falls back to the first one. */
   defaultClusterId?: string | null;
+  /** Look for a new release on GitHub at startup and every few hours. */
+  checkForUpdates: boolean;
+}
+
+export type UpdateStatus = 'idle' | 'checking' | 'current' | 'available' | 'downloading' | 'installing' | 'error';
+
+export interface UpdateState {
+  status: UpdateStatus;
+  currentVersion: string;
+  latestVersion?: string;
+  releaseUrl?: string;
+  releaseNotes?: string;
+  /** Bytes received and expected while downloading. */
+  received?: number;
+  total?: number;
+  /** False when this install cannot replace itself (portable exe, deb/rpm); the release page opens instead. */
+  canInstall: boolean;
+  error?: string;
+  checkedAt?: number;
 }
 
 /**

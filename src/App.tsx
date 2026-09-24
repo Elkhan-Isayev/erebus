@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAppState } from '@/app/AppState';
 import { Layout } from '@/app/Layout';
+import { BrokerRouteBanner } from '@/components/BrokerRouteBanner';
 import { CommandPalette } from '@/components/CommandPalette';
 import { TerminalPanel } from '@/components/TerminalPanel';
 import { Button, EmptyState, Loading } from '@/components/ui';
@@ -101,6 +102,7 @@ export default function App() {
       bridge.on('menu:refresh', () => setRefreshKey((k) => k + 1)),
       bridge.on('menu:toggle-terminal', () => setTerminalOpen(!terminalOpen)),
       bridge.on('menu:new-terminal', () => void openTerminal()),
+      bridge.on('menu:check-updates', () => navigate('/settings')),
     ];
     return () => offs.forEach((off) => off());
   }, [cycleTheme, terminalOpen, setTerminalOpen, openTerminal]);
@@ -260,6 +262,15 @@ export default function App() {
           </Button>
         }
       />
+    );
+  }
+
+  if (ready && clusterMatch && cluster?.kind === 'kafka') {
+    content = (
+      <>
+        <BrokerRouteBanner key={cluster.id} cluster={cluster} />
+        {content}
+      </>
     );
   }
 

@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Icon } from '@/components/Icons';
 import { Button, Checkbox, ConfirmDialog, Field, Input, KeyValue, Modal, PageHead, Segmented, Select } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useAppState } from '@/app/AppState';
 import { useToast } from '@/lib/toast';
+import { useUpdateState } from '@/lib/updates';
+import { formatBytes } from '@/lib/format';
 import type { AvroSchemaEntry, TerminalProfile, ThemeMode } from '@shared/types';
 
 /** Saved commands — typically `kubectl port-forward` — with optional start-up on launch. */
@@ -210,6 +212,76 @@ function AvroSchemas() {
   );
 }
 
+function Updates() {
+  const toast = useToast();
+  const { settings, saveSettings } = useAppState();
+  const update = useUpdateState();
+  const busy = update?.status === 'checking' || update?.status === 'downloading' || update?.status === 'installing';
+
+  const check = async () => {
+    try {
+      const next = await api.checkForUpdates();
+      if (next.status === 'current') toast.success(`Erebus ${next.currentVersion} is the latest version`);
+    } catch (err) {
+      toast.error(err);
+    }
+  };
+
+  const install = async () => {
+    try {
+      await api.installUpdate();
+    } catch (err) {
+      toast.error(err);
+    }
+  };
+
+  let line: ReactNode = 'Erebus checks GitHub for a new release when it starts and every six hours.';
+  if (update?.status === 'current') line = `You are on the latest version, ${update.currentVersion}.`;
+  if (update?.status === 'available') line = <>Erebus <b>{update.latestVersion}</b> is available — you have {update.currentVersion}.</>;
+  if (update?.status === 'downloading') {
+    const pct = update.total ? Math.floor(((update.received ?? 0) / update.total) * 100) : 0;
+    line = `Downloading ${update.latestVersion} — ${formatBytes(update.received ?? 0)} of ${formatBytes(update.total ?? 0)} (${pct}%)`;
+  }
+  if (update?.status === 'installing') line = 'Installing — Erebus restarts in a moment.';
+
+  return (
+    <div className="card" style={{ marginTop: 14 }}>
+      <div className="card-head">
+        <h3>Updates</h3>
+        <div className="actions">
+          {update?.releaseUrl && (
+            <Button size="sm" variant="ghost" onClick={() => void api.openExternal(update.releaseUrl!)}>
+              <Icon.External width={13} /> Release notes
+            </Button>
+          )}
+          <Button size="sm" onClick={() => void check()} loading={update?.status === 'checking'} disabled={busy}>
+            <Icon.Refresh width={13} /> Check now
+          </Button>
+          {update?.status === 'available' && (
+            <Button size="sm" variant="primary" onClick={() => void install()}>
+              <Icon.Download width={13} /> {update.canInstall ? `Update to ${update.latestVersion}` : 'Download'}
+            </Button>
+          )}
+        </div>
+      </div>
+      <div className="card-pad">
+        <p style={{ marginTop: 0 }}>{line}</p>
+        {update?.status === 'downloading' && (
+          <div className="update-progress">
+            <div style={{ width: `${update.total ? ((update.received ?? 0) / update.total) * 100 : 0}%` }} />
+          </div>
+        )}
+        {update?.error && <p className="subtle">{update.error}</p>}
+        <Checkbox
+          checked={settings.checkForUpdates !== false}
+          onChange={(checkForUpdates) => void saveSettings({ checkForUpdates })}
+          label="Check for updates automatically"
+        />
+      </div>
+    </div>
+  );
+}
+
 export function SettingsPage() {
   const { settings, saveSettings, info, clusters } = useAppState();
 
@@ -292,6 +364,8 @@ export function SettingsPage() {
       <TerminalProfiles />
 
       <AvroSchemas />
+
+      <Updates />
 
       <div className="card" style={{ marginTop: 14 }}>
         <div className="card-head">

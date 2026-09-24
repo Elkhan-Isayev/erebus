@@ -14,6 +14,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   terminals: [],
   avroSchemas: [],
   defaultClusterId: null,
+  checkForUpdates: true,
 };
 
 /** Secrets are encrypted with the OS keychain when it is available. */
@@ -82,6 +83,8 @@ function normalizeCluster(raw: Partial<ClusterConfig>): ClusterConfig {
     ksqldb: raw.ksqldb ?? null,
     requestTimeoutMs: raw.requestTimeoutMs ?? 30_000,
     connectionTimeoutMs: raw.connectionTimeoutMs ?? 10_000,
+    brokerOverrides: raw.brokerOverrides?.trim() || undefined,
+    routeViaBootstrap: raw.routeViaBootstrap ?? false,
     createdAt: raw.createdAt ?? Date.now(),
   };
 }

@@ -14,6 +14,8 @@ const EVENT_CHANNELS = [
   'menu:refresh',
   'menu:toggle-theme',
   'menu:palette',
+  'menu:check-updates',
+  'update:state',
 ] as const;
 
 export type EventChannel = (typeof EVENT_CHANNELS)[number];

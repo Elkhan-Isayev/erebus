@@ -26,6 +26,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   terminals: [],
   avroSchemas: [],
   defaultClusterId: null,
+  checkForUpdates: true,
 };
 
 export function AppStateProvider({ children }: { children: ReactNode }) {

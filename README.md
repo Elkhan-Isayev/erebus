@@ -292,6 +292,19 @@ Next launch: two terminal tabs already forwarding, and `preprod-kafka` selected 
 > [!NOTE]
 > These are pipes, not a pty — ideal for CLIs and long-running port-forwards, not for full-screen TUIs like `vim` or `htop`.
 
+### 🔀 Port-forwards to several clusters
+
+Kafka clients read metadata from the bootstrap address, then send every fetch and produce to the address each broker
+**advertises**. Behind `kubectl port-forward` that advertised address is often `localhost:9094` or an in-cluster name —
+and if another port-forward already owns that port, reads silently land on the *other* cluster: the topic list looks
+right while every partition shows zero messages.
+
+Erebus dials each advertised address the way a real request would and checks that the same cluster answers. When one
+does not, a banner says which broker leads where. Two ways to fix it, under the cluster's **General** tab:
+
+- **Route every broker through the bootstrap address**: one click from the banner for a single-broker port-forward.
+- **Broker address overrides**: one `advertised => actual` pair per line, for several brokers on several local ports.
+
 <br>
 
 ## 🤖 MCP — Claude Code drives Erebus
@@ -426,6 +439,11 @@ Reproduce it yourself: `scripts/` has nothing magic — a paced `kafkajs` produc
      Kafka Connect or ksqlDB under **Integrations**.
    - *RabbitMQ* — the management URL (`http://localhost:15672`), user, password and virtual host.
 3. Hit **Test connection**, then **Add cluster**.
+
+**Updates.** Erebus checks GitHub for a new release when it starts and every six hours. When there is one, a button
+appears at the bottom of the sidebar; **Settings → Updates** downloads it, checks its SHA-256 against the release, swaps it
+in and restarts. No reinstall is needed. This works for the macOS app, the Windows installer and the AppImage. The portable
+`.exe`, `.deb` and `.rpm` installs open the release page instead.
 
 Tick **read-only** for production. Produce, publish, create, delete, config changes and offset resets are then rejected
 in the main process, so neither a stray click nor an over-eager agent can reach the broker.

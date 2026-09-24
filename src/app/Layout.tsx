@@ -4,6 +4,7 @@ import { Icon } from '@/components/Icons';
 import { Button } from '@/components/ui';
 import { cx } from '@/lib/format';
 import { navigate, useRoute } from '@/lib/router';
+import { useUpdateState } from '@/lib/updates';
 import { useAppState } from './AppState';
 
 const KAFKA_NAV = [
@@ -105,6 +106,7 @@ export function Layout({
 }) {
   const route = useRoute();
   const { resolvedTheme, cycleTheme, theme } = useAppState();
+  const update = useUpdateState();
   const isMac = window.erebus.platform === 'darwin';
 
   const ThemeIcon = theme === 'system' ? Icon.Monitor : resolvedTheme === 'dark' ? Icon.Moon : Icon.Sun;
@@ -171,6 +173,18 @@ export function Layout({
           <Button variant="ghost" size="sm" iconOnly title="Settings" onClick={() => navigate('/settings')}>
             <Icon.Settings width={15} />
           </Button>
+          {update && ['available', 'downloading', 'installing'].includes(update.status) && (
+            <Button
+              variant="primary"
+              size="sm"
+              className="update-pill"
+              title={`Erebus ${update.latestVersion} is available`}
+              onClick={() => navigate('/settings')}
+            >
+              <Icon.Download width={13} />
+              {update.status === 'available' ? update.latestVersion : 'Updating…'}
+            </Button>
+          )}
         </div>
       </aside>
 

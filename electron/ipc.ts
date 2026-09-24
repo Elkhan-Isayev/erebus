@@ -26,6 +26,7 @@ import * as ksql from './rest/ksql';
 import * as rabbit from './rabbit/api';
 import * as terminal from './terminal/manager';
 import { validateAvroSchema } from './kafka/serde';
+import * as updater from './updater';
 
 type Handler = (payload: any) => unknown | Promise<unknown>;
 
@@ -61,6 +62,10 @@ export const handlers: Record<string, Handler> = {
     return { opened: true, path: result.filePaths[0], contents: await fs.readFile(result.filePaths[0], 'utf8') };
   },
 
+  'update:state': () => updater.getUpdateState(),
+  'update:check': () => updater.checkForUpdates(),
+  'update:install': () => updater.installUpdate(),
+
   'settings:get': () => store.getSettings(),
   'settings:update': (patch: Partial<AppSettings>) => {
     const settings = store.updateSettings(patch);
@@ -83,6 +88,7 @@ export const handlers: Record<string, Handler> = {
   },
   'clusters:test': ({ clusterId }: { clusterId: string }) =>
     store.getCluster(clusterId).kind === 'rabbitmq' ? rabbit.testConnection(clusterId) : admin.testConnection(clusterId),
+  'clusters:routes': ({ clusterId }: { clusterId: string }) => admin.checkBrokerRoutes(clusterId),
   'clusters:export': () => store.exportClusters(),
   'clusters:import': ({ json }: { json: string }) => store.importClusters(json),
   'clusters:disconnect': ({ clusterId }: { clusterId: string }) => pool.disconnect(clusterId),

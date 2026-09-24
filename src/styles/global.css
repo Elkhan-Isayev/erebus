@@ -1554,3 +1554,21 @@ table.data tr:hover .row-actions {
     grid-template-columns: 1fr;
   }
 }
+
+.update-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+.update-progress > div {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.15s linear;
+}
+
+.sidebar-foot .update-pill {
+  margin-left: auto;
+}

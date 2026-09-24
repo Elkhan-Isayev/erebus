@@ -3,6 +3,8 @@ import type {
   AppSettings,
   AvroSchemaEntry,
   BrokerInfo,
+  BrokerRoute,
+  BrokerRouteCheck,
   ClusterConfig,
   ClusterOverview,
   ConfigEntry,
@@ -29,6 +31,7 @@ import type {
   TerminalSession,
   TopicDetail,
   TopicSummary,
+  UpdateState,
 } from '@shared/types';
 
 type EventChannel =
@@ -42,7 +45,9 @@ type EventChannel =
   | 'menu:new-cluster'
   | 'menu:refresh'
   | 'menu:toggle-theme'
-  | 'menu:palette';
+  | 'menu:palette'
+  | 'menu:check-updates'
+  | 'update:state';
 
 interface Bridge {
   invoke<T>(channel: string, payload?: unknown): Promise<T>;
@@ -71,6 +76,9 @@ export interface AppInfo {
 export const api = {
   /* app */
   info: () => call<AppInfo>('app:info'),
+  updateState: () => call<UpdateState>('update:state'),
+  checkForUpdates: () => call<UpdateState>('update:check'),
+  installUpdate: () => call<void>('update:install'),
   openExternal: (url: string) => call<void>('app:openExternal', { url }),
   copy: (text: string) => call<void>('app:copy', { text }),
   saveFile: (defaultName: string, contents: string) =>
@@ -85,7 +93,9 @@ export const api = {
   getCluster: (clusterId: string) => call<ClusterConfig>('clusters:get', { clusterId }),
   saveCluster: (cluster: Partial<ClusterConfig>) => call<ClusterConfig>('clusters:save', cluster),
   deleteCluster: (clusterId: string) => call<boolean>('clusters:delete', { clusterId }),
-  testCluster: (clusterId: string) => call<{ brokers: number; clusterId: string }>('clusters:test', { clusterId }),
+  testCluster: (clusterId: string) =>
+    call<{ brokers: number; clusterId: string; misrouted?: BrokerRoute[] }>('clusters:test', { clusterId }),
+  brokerRoutes: (clusterId: string) => call<BrokerRouteCheck>('clusters:routes', { clusterId }),
   exportClusters: () => call<string>('clusters:export'),
   importClusters: (json: string) => call<ClusterConfig[]>('clusters:import', { json }),
   disconnectCluster: (clusterId: string) => call<void>('clusters:disconnect', { clusterId }),

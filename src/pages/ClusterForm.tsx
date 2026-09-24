@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { BrokerKind, ClusterConfig, KafkaConnectConfig, SaslMechanism } from '@shared/types';
+import type { BrokerKind, BrokerRoute, ClusterConfig, KafkaConnectConfig, SaslMechanism } from '@shared/types';
 import { Button, Checkbox, Field, Input, Modal, Segmented, Select, Tabs, Textarea } from '@/components/ui';
 import { Icon } from '@/components/Icons';
 import { api } from '@/lib/api';
+import { describeMisroute } from '@/components/BrokerRouteBanner';
 import { useToast } from '@/lib/toast';
 
 const COLORS = ['#7c5cff', '#2f9e6e', '#d97706', '#dc2626', '#0ea5e9', '#db2777', '#65a30d', '#6b7280'];
@@ -95,6 +96,11 @@ export function ClusterForm({
       const saved = await save();
       if (!saved) return;
       const result = (await api.testCluster(saved.id)) as Record<string, unknown>;
+      const misrouted = (result.misrouted as BrokerRoute[] | undefined) ?? [];
+      if (misrouted.length > 0) {
+        toast.error(describeMisroute(misrouted));
+        return;
+      }
       toast.success(
         saved.kind === 'rabbitmq'
           ? `Connected — RabbitMQ ${result.version} on ${result.cluster}`
@@ -216,14 +222,35 @@ export function ClusterForm({
               </div>
             </>
           ) : (
-            <Field label="Bootstrap servers" hint="Comma separated host:port list">
-              <Input
-                className="mono"
-                value={draft.bootstrapServers ?? ''}
-                placeholder="broker-1:9092,broker-2:9092"
-                onChange={(e) => patch({ bootstrapServers: e.target.value })}
-              />
-            </Field>
+            <>
+              <Field label="Bootstrap servers" hint="Comma separated host:port list">
+                <Input
+                  className="mono"
+                  value={draft.bootstrapServers ?? ''}
+                  placeholder="broker-1:9092,broker-2:9092"
+                  onChange={(e) => patch({ bootstrapServers: e.target.value })}
+                />
+              </Field>
+              <Field>
+                <Checkbox
+                  checked={Boolean(draft.routeViaBootstrap)}
+                  onChange={(routeViaBootstrap) => patch({ routeViaBootstrap })}
+                  label="Route every broker through the bootstrap address — for a single-broker kubectl port-forward"
+                />
+              </Field>
+              <Field
+                label="Broker address overrides"
+                hint="One advertised => actual pair per line. Use it when brokers advertise addresses you cannot reach, e.g. behind several port-forwards."
+              >
+                <Textarea
+                  className="mono"
+                  rows={3}
+                  value={draft.brokerOverrides ?? ''}
+                  placeholder={'kafka-0.kafka-headless:9094 => localhost:9095\nkafka-1.kafka-headless:9094 => localhost:9096'}
+                  onChange={(e) => patch({ brokerOverrides: e.target.value })}
+                />
+              </Field>
+            </>
           )}
 
           <Field label="Colour">

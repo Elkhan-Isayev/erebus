@@ -3,6 +3,7 @@ import type { ClusterConfig } from '@shared/types';
 import { Icon } from '@/components/Icons';
 import { Badge, Button, ConfirmDialog, PageHead } from '@/components/ui';
 import { api } from '@/lib/api';
+import { describeMisroute } from '@/components/BrokerRouteBanner';
 import { useToast } from '@/lib/toast';
 import { navigate } from '@/lib/router';
 import { useAppState } from '@/app/AppState';
@@ -24,7 +25,8 @@ export function ClustersPage({ openForm, onFormClosed }: { openForm?: boolean; o
     setTesting(cluster.id);
     try {
       const result = await api.testCluster(cluster.id);
-      toast.success(`${cluster.name}: ${result.brokers} broker(s) online`);
+      if (result.misrouted?.length) toast.error(`${cluster.name}: ${describeMisroute(result.misrouted)}`);
+      else toast.success(`${cluster.name}: ${result.brokers} broker(s) online`);
     } catch (err) {
       toast.error(err);
     } finally {
