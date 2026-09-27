@@ -97,6 +97,10 @@ export function ClusterForm({
       if (!saved) return;
       const result = (await api.testCluster(saved.id)) as Record<string, unknown>;
       const misrouted = (result.misrouted as BrokerRoute[] | undefined) ?? [];
+      if (result.identityWarning) {
+        toast.error(result.identityWarning as string);
+        return;
+      }
       if (misrouted.length > 0) {
         toast.error(describeMisroute(misrouted));
         return;

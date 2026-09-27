@@ -9,13 +9,9 @@ import {
   type DescribeConfigResponse,
   type ITopicConfig,
 } from 'kafkajs';
-import type { Address } from './routing';
 import type {
   AclEntry,
   BrokerInfo,
-  BrokerRoute,
-  BrokerRouteCheck,
-  ClusterConfig,
   ClusterOverview,
   ConfigEntry,
   ConsumerGroupDetail,
@@ -27,8 +23,8 @@ import type {
   TopicDetail,
   TopicSummary,
 } from '../../shared/types';
-import { adminFor, assertWritable, buildKafka, clusterFor } from './pool';
-import { bootstrapList, routeAddress, splitAddress } from './routing';
+import { adminFor, clusterFor } from './pool';
+import { assertWritable } from './routes';
 
 const INTERNAL_PREFIXES = ['__', '_confluent', '_schemas'];
 
@@ -289,7 +285,7 @@ export async function getTopic(clusterId: string, topic: string): Promise<TopicD
 }
 
 export async function createTopic(clusterId: string, input: CreateTopicInput): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   const topic: ITopicConfig = {
     topic: input.name,
@@ -304,13 +300,13 @@ export async function createTopic(clusterId: string, input: CreateTopicInput): P
 }
 
 export async function deleteTopic(clusterId: string, topic: string): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   await admin.deleteTopics({ topics: [topic], timeout: 15_000 });
 }
 
 export async function addPartitions(clusterId: string, topic: string, totalCount: number): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   await admin.createPartitions({ topicPartitions: [{ topic, count: totalCount }], timeout: 15_000 });
 }
@@ -320,7 +316,7 @@ export async function updateTopicConfig(
   topic: string,
   entries: { name: string; value: string }[],
 ): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   await admin.alterConfigs({
     validateOnly: false,
@@ -333,7 +329,7 @@ export async function deleteRecords(
   topic: string,
   partitions: { partition: number; offset: string }[],
 ): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   await admin.deleteTopicRecords({ topic, partitions });
 }
@@ -457,13 +453,13 @@ export async function getConsumerGroup(clusterId: string, groupId: string): Prom
 }
 
 export async function deleteConsumerGroup(clusterId: string, groupId: string): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   await admin.deleteGroups([groupId]);
 }
 
 export async function resetOffsets(clusterId: string, input: ResetOffsetInput): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   const { groupId, topic, mode, value } = input;
 
@@ -535,75 +531,13 @@ const asAcl = (entry: AclEntry) => ({
 });
 
 export async function createAcl(clusterId: string, entry: AclEntry): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   await admin.createAcls({ acl: [asAcl(entry)] });
 }
 
 export async function deleteAcl(clusterId: string, entry: AclEntry): Promise<void> {
-  assertWritable(clusterId);
+  await assertWritable(clusterId);
   const admin = await adminFor(clusterId);
   await admin.deleteAcls({ filters: [asAcl(entry)] });
-}
-
-/* ------------------------------------------------------------- connectivity */
-
-export async function testConnection(
-  clusterId: string,
-): Promise<{ brokers: number; clusterId: string; misrouted: BrokerRoute[] }> {
-  const check = await checkBrokerRoutes(clusterId);
-  return { brokers: check.routes.length, clusterId: check.clusterId, misrouted: check.routes.filter((r) => !r.ok) };
-}
-
-const PROBE_TIMEOUT_MS = 5_000;
-
-/** The cluster that answers at `address` — and only there. */
-async function describeAt(config: ClusterConfig, address: Address) {
-  const timeout = Math.min(config.connectionTimeoutMs, PROBE_TIMEOUT_MS);
-  // Pinned, because kafkajs refreshes metadata from any broker it already knows, which is
-  // exactly the misrouted one we are trying to catch.
-  const probe = buildKafka(
-    { ...config, connectionTimeoutMs: timeout, requestTimeoutMs: timeout },
-    { retry: { retries: 0 }, pinTo: address },
-  ).admin();
-  try {
-    await probe.connect();
-    return await probe.describeCluster();
-  } finally {
-    void probe.disconnect().catch(() => {});
-  }
-}
-
-/**
- * Metadata comes from the bootstrap address, but every read and write goes to the address
- * each broker advertises. When those differ — a port-forward, typically — the advertised
- * one may lead nowhere, or to a different cluster entirely, and the app then shows that
- * cluster's (often empty) partitions without a single error. Dial every advertised address
- * the way a real request would and check that the same cluster answers.
- */
-export async function checkBrokerRoutes(clusterId: string): Promise<BrokerRouteCheck> {
-  const config = clusterFor(clusterId);
-  const bootstrap = bootstrapList(config);
-  const first = splitAddress(bootstrap[0]);
-  // Both the reference id and the broker list come from the bootstrap address alone: the
-  // pooled client would ask the misrouted broker, or fail outright when it is unreachable.
-  const { clusterId: expected, brokers } = await describeAt(config, routeAddress(config, first.host, first.port));
-
-  const routes = await Promise.all(
-    brokers.map(async (b): Promise<BrokerRoute> => {
-      const target = routeAddress(config, b.host, b.port);
-      const base = { nodeId: b.nodeId, advertised: `${b.host}:${b.port}`, connectsTo: `${target.host}:${target.port}` };
-      try {
-        const { clusterId: reached } = await describeAt(config, target);
-        return { ...base, reachedClusterId: reached, ok: reached === expected };
-      } catch (err) {
-        const { message, cause } = err as Error & { cause?: { code?: string } };
-        const code = cause?.code;
-        // Node reports a refused localhost dial as an AggregateError with no message of its own.
-        return { ...base, reachedClusterId: null, ok: false, error: code ? `${message.replace(/:\s*$/, '')}: ${code}` : message };
-      }
-    }),
-  );
-
-  return { clusterId: expected, bootstrap: bootstrap.join(', '), routes: routes.sort((a, b) => a.nodeId - b.nodeId) };
 }

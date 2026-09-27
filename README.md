@@ -305,6 +305,12 @@ does not, a banner says which broker leads where. Two ways to fix it, under the 
 - **Route every broker through the bootstrap address**: one click from the banner for a single-broker port-forward.
 - **Broker address overrides**: one `advertised => actual` pair per line, for several brokers on several local ports.
 
+A port is not a cluster, though: the tunnel on `localhost:9094` can lead to dev today and to prod tomorrow, and
+then every address agrees with every other while all of them are wrong. So each profile also remembers the
+**cluster id** it first reached. When its address starts answering as a different cluster, Erebus names both
+("saved with Dev, the cluster of Preprod answers now"), blocks produce, create, delete and config changes, and asks
+you to confirm before anything is written.
+
 <br>
 
 ## 🤖 MCP — Claude Code drives Erebus

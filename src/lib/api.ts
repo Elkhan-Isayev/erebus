@@ -94,8 +94,10 @@ export const api = {
   saveCluster: (cluster: Partial<ClusterConfig>) => call<ClusterConfig>('clusters:save', cluster),
   deleteCluster: (clusterId: string) => call<boolean>('clusters:delete', { clusterId }),
   testCluster: (clusterId: string) =>
-    call<{ brokers: number; clusterId: string; misrouted?: BrokerRoute[] }>('clusters:test', { clusterId }),
+    call<{ brokers: number; clusterId: string; misrouted?: BrokerRoute[]; identityWarning?: string | null }>('clusters:test', { clusterId }),
   brokerRoutes: (clusterId: string) => call<BrokerRouteCheck>('clusters:routes', { clusterId }),
+  confirmClusterIdentity: (clusterId: string, actual: string) =>
+    call<BrokerRouteCheck>('clusters:confirmIdentity', { clusterId, actual }),
   exportClusters: () => call<string>('clusters:export'),
   importClusters: (json: string) => call<ClusterConfig[]>('clusters:import', { json }),
   disconnectCluster: (clusterId: string) => call<void>('clusters:disconnect', { clusterId }),

@@ -159,7 +159,7 @@ export function scratchConsumer(clusterId: string, groupId: string): Consumer {
   });
 }
 
-export function assertWritable(clusterId: string): void {
+export function assertNotReadonly(clusterId: string): void {
   if (clusterFor(clusterId).readonly) throw new Error('Cluster is marked read-only — enable writes in cluster settings');
 }
 

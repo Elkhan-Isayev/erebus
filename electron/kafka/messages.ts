@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import type { CompressionTypes } from 'kafkajs';
 import { CompressionTypes as Compression } from 'kafkajs';
 import type { ConsumeProgress, ConsumeQuery, KafkaMessage, ProduceInput } from '../../shared/types';
-import { adminFor, assertWritable, producerFor, scratchConsumer } from './pool';
+import { adminFor, producerFor, scratchConsumer } from './pool';
+import { assertWritable } from './routes';
 import { decode, encode } from './serde';
 
 type Emit = (channel: string, payload: unknown) => void;
@@ -436,7 +437,7 @@ const COMPRESSION: Record<string, CompressionTypes> = {
 };
 
 export async function produce(input: ProduceInput): Promise<{ partition: number; offset: string }[]> {
-  assertWritable(input.clusterId);
+  await assertWritable(input.clusterId);
   const producer = await producerFor(input.clusterId);
   const [key, value] = await Promise.all([
     encode(input.clusterId, input.key ?? null, input.keySerde, input.keySubject),

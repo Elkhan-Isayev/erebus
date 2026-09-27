@@ -85,6 +85,7 @@ function normalizeCluster(raw: Partial<ClusterConfig>): ClusterConfig {
     connectionTimeoutMs: raw.connectionTimeoutMs ?? 10_000,
     brokerOverrides: raw.brokerOverrides?.trim() || undefined,
     routeViaBootstrap: raw.routeViaBootstrap ?? false,
+    pinnedClusterId: raw.pinnedClusterId || undefined,
     createdAt: raw.createdAt ?? Date.now(),
   };
 }
@@ -137,6 +138,16 @@ export function upsertCluster(input: Partial<ClusterConfig>): ClusterConfig {
   else state.clusters.push(cluster);
   persist({ ...state });
   return cluster;
+}
+
+/** The one way a pin changes: the main process, after a check or an explicit confirmation. */
+export function setPinnedClusterId(id: string, pinnedClusterId: string | undefined): ClusterConfig {
+  const state = read();
+  const idx = state.clusters.findIndex((c) => c.id === id);
+  if (idx < 0) throw new Error(`Cluster ${id} is not configured`);
+  state.clusters[idx] = { ...state.clusters[idx], pinnedClusterId };
+  persist({ ...state });
+  return state.clusters[idx];
 }
 
 export function deleteCluster(id: string): void {

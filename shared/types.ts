@@ -77,6 +77,12 @@ export interface ClusterConfig {
   brokerOverrides?: string;
   /** Kafka only. Send every broker connection to the first bootstrap address (single-broker port-forwards). */
   routeViaBootstrap?: boolean;
+  /**
+   * Kafka only. The cluster id this profile reached the first time, or last confirmed.
+   * A port says nothing about which cluster is behind it; this does. Managed by the main
+   * process only: saving a profile never changes it, a new bootstrap address clears it.
+   */
+  pinnedClusterId?: string;
   createdAt: number;
 }
 
@@ -88,14 +94,32 @@ export interface BrokerRoute {
   connectsTo: string;
   /** Cluster id reported by whatever answered there; null when nothing did. */
   reachedClusterId: string | null;
+  /** The saved profile pinned to `reachedClusterId`, so people read "Preprod" rather than an id. */
+  reachedProfile: string | null;
   ok: boolean;
   error?: string;
 }
 
+/**
+ * pinned-now: first check, the answering cluster became this profile's own.
+ * match:      the bootstrap answers as the pinned cluster.
+ * changed:    it answers as another cluster — writes are blocked until confirmed.
+ */
+export interface ClusterIdentity {
+  status: 'pinned-now' | 'match' | 'changed';
+  expected: string | null;
+  actual: string;
+  /** Another saved profile already pinned to `actual`, if any. */
+  actualProfile: string | null;
+}
+
 export interface BrokerRouteCheck {
+  /** The cluster answering at the bootstrap address right now. */
   clusterId: string;
+  profileName: string;
   bootstrap: string;
   routes: BrokerRoute[];
+  identity: ClusterIdentity;
 }
 
 export interface AppSettings {

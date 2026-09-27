@@ -20,6 +20,7 @@ import * as store from './store';
 import * as admin from './kafka/admin';
 import * as messages from './kafka/messages';
 import * as pool from './kafka/pool';
+import * as routes from './kafka/routes';
 import * as registry from './rest/schemaRegistry';
 import * as connect from './rest/connect';
 import * as ksql from './rest/ksql';
@@ -76,19 +77,27 @@ export const handlers: Record<string, Handler> = {
   'clusters:list': () => store.listClusters(),
   'clusters:get': ({ clusterId }: { clusterId: string }) => store.getCluster(clusterId),
   'clusters:save': (cluster: Partial<ClusterConfig>) => {
-    const saved = store.upsertCluster(cluster);
+    // The pin is never taken from the renderer, whose copy may predate it. It survives a
+    // save unless the bootstrap address changed — then it is a different door entirely.
+    const previous = cluster.id ? store.listClusters().find((c) => c.id === cluster.id) : undefined;
+    const keepPin = previous && previous.bootstrapServers === cluster.bootstrapServers;
+    const saved = store.upsertCluster({ ...cluster, pinnedClusterId: keepPin ? previous.pinnedClusterId : undefined });
+    routes.forgetIdentity(saved.id);
     void pool.disconnect(saved.id);
     registry.clearSchemaCache();
     return saved;
   },
   'clusters:delete': async ({ clusterId }: { clusterId: string }) => {
+    routes.forgetIdentity(clusterId);
     await pool.disconnect(clusterId);
     store.deleteCluster(clusterId);
     return true;
   },
   'clusters:test': ({ clusterId }: { clusterId: string }) =>
-    store.getCluster(clusterId).kind === 'rabbitmq' ? rabbit.testConnection(clusterId) : admin.testConnection(clusterId),
-  'clusters:routes': ({ clusterId }: { clusterId: string }) => admin.checkBrokerRoutes(clusterId),
+    store.getCluster(clusterId).kind === 'rabbitmq' ? rabbit.testConnection(clusterId) : routes.testConnection(clusterId),
+  'clusters:routes': ({ clusterId }: { clusterId: string }) => routes.checkBrokerRoutes(clusterId),
+  'clusters:confirmIdentity': ({ clusterId, actual }: { clusterId: string; actual: string }) =>
+    routes.confirmIdentity(clusterId, actual),
   'clusters:export': () => store.exportClusters(),
   'clusters:import': ({ json }: { json: string }) => store.importClusters(json),
   'clusters:disconnect': ({ clusterId }: { clusterId: string }) => pool.disconnect(clusterId),

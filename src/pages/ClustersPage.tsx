@@ -25,7 +25,8 @@ export function ClustersPage({ openForm, onFormClosed }: { openForm?: boolean; o
     setTesting(cluster.id);
     try {
       const result = await api.testCluster(cluster.id);
-      if (result.misrouted?.length) toast.error(`${cluster.name}: ${describeMisroute(result.misrouted)}`);
+      if (result.identityWarning) toast.error(result.identityWarning);
+      else if (result.misrouted?.length) toast.error(`${cluster.name}: ${describeMisroute(result.misrouted)}`);
       else toast.success(`${cluster.name}: ${result.brokers} broker(s) online`);
     } catch (err) {
       toast.error(err);
